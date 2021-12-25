@@ -112,6 +112,9 @@ class Quaternion:
     def __repr__(self):
         return '({}, {}, {}, {})'.format(self.x, self.y, self.z, self.w)
 
+    def __copy__(self):
+        return Quaternion(self.x, self.y, self.z, self.w)
+
     def set_from_euler(self, euler: Euler) -> Quaternion:
         x = math.radians(euler.x)
         y = math.radians(euler.y)
@@ -319,3 +322,11 @@ class Vector3:
         self.i *= length
         self.j *= length
         self.k *= length
+
+    def scale_pixels_to_meter(self) -> None:
+        self.i /= 17.0
+        self.j /= 17.0
+        self.k /= 17.0
+
+    def scaled_pixels_to_meter(self) -> Vector3:
+        return Vector3(self.i / 17.0, self.j / 17.0, self.k / 17.0)
