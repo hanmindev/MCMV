@@ -46,7 +46,7 @@ class GlobalBone:
 
 
 class Frame:
-    """A single frame containing all FrameBones."""
+    """A single frame containing all FrameBones for a specific armature."""
 
     def __init__(self) -> None:
         self.frame_bones = {}
