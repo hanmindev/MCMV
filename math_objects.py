@@ -4,13 +4,30 @@ import math
 
 
 class Euler:
-    def __init__(self, order: str, x: float = None, y: float = None, z: float = None, ) -> None:
+    """A class representing an Euler rotation.
+
+    Instance Attributes:
+      - order: Euler rotation order.
+      - x: Rotation along the local x-axis (degrees)
+      - y: Rotation along the local y-axis (degrees)
+      - z: Rotation along the local z-axis (degrees)
+    """
+    def __init__(self, order: str, x: float = None, y: float = None, z: float = None) -> None:
+        """Create a new Euler object.
+            order: Euler rotation order.
+            x: Rotation along the local x-axis (degrees)
+            y: Rotation along the local y-axis (degrees)
+            z: Rotation along the local z-axis (degrees)
+        """
         self.order = order
         self.x = x
         self.y = y
         self.z = z
 
     def set_from_quaternion(self, quaternion: Quaternion) -> Euler:
+        """Set the rotation of the Euler object from a Quaternion object.
+            quaternion: A Quaternion object.
+        """
         # quaternion to euler angles XYZ
         qx = quaternion.x
         qy = quaternion.y
@@ -92,30 +109,57 @@ class Euler:
         self.z = math.degrees(self.z)
         return self
 
-    def change_order(self, new_order: str):
+    def change_order(self, new_order: str) -> None:
+        """Change the Euler order from self.order to new_order while keeping the rotation
+        representation the same.
+            new_order: The new Euler order.
+        """
         quaternion = Quaternion()
         quaternion.set_from_euler(self)
         self.order = new_order
         self.set_from_quaternion(quaternion)
 
-    def to_tuple(self):
+    def to_tuple(self) -> tuple[float, float, float]:
+        """Return a tuple representation of the Euler object.
+        """
         return (self.x, self.y, self.z)
 
 
 class Quaternion:
+    """A class representing a Quaternion.
+
+    Instance Attributes:
+      - x: The i component of the quaternion.
+      - y: The j component of the quaternion.
+      - z: The k component of the quaternion.
+      - w: The real component of the quaternion.
+    """
     def __init__(self, x: float = None, y: float = None, z: float = None, w: float = None) -> None:
+        """Create a new Quaternion object. Note that the real part goes at the end unlike
+        some quaternion representations.
+
+            x: The i component of the quaternion.
+            y: The j component of the quaternion.
+            z: The k component of the quaternion.
+            w: The real component of the quaternion.
+        """
         self.x = x
         self.y = y
         self.z = z
         self.w = w
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Return a string representation of the Quaternion object for debugging purposes."""
         return '({}, {}, {}, {})'.format(self.x, self.y, self.z, self.w)
 
-    def __copy__(self):
+    def copy(self) -> Quaternion:
+        """Return a copy of the Quaternion object."""
         return Quaternion(self.x, self.y, self.z, self.w)
 
     def set_from_euler(self, euler: Euler) -> Quaternion:
+        """Set the quaternion from an Euler object.
+            euler: A Euler object.
+        """
         x = math.radians(euler.x)
         y = math.radians(euler.y)
         z = math.radians(euler.z)
@@ -161,8 +205,11 @@ class Quaternion:
             self.w = c1 * c2 * c3 + s1 * s2 * s3
         return self
 
-    def parent(self, parent):
-        """Rotates self by the parent quaternion"""
+    def parent(self, parent: Quaternion) -> None:
+        """Rotate self by the parent quaternion.
+
+            parent: A Quaternion object to parent.
+        """
         child = self
 
         x = parent.w * child.x + parent.x * child.w + parent.y * child.z - parent.z * child.y
@@ -176,6 +223,8 @@ class Quaternion:
         self.w = w
 
     def normalize(self) -> None:
+        """Normalize self such that the magnitude is 1.
+        """
         length = math.sqrt(self.x ** 2 + self.y ** 2 + self.z ** 2 + self.w ** 2)
         self.x = self.x / length
         self.y = self.y / length
@@ -183,6 +232,8 @@ class Quaternion:
         self.w = self.w / length
 
     def normalized(self) -> Quaternion:
+        """Return a normalized quaternion from self.
+        """
         length = math.sqrt(self.x ** 2 + self.y ** 2 + self.z ** 2 + self.w ** 2)
         x = self.x / length
         y = self.y / length
@@ -191,6 +242,13 @@ class Quaternion:
         return Quaternion(x, y, z, w)
 
     def between_vectors(self, v_1: Vector3, v_2: Vector3) -> Quaternion:
+        """Set the quaternion as the shortest rotation from v_1 to v_2.
+            v_1: A Vector3 object
+            v_2: A Vector3 object
+
+        Rotating v_1 by self.between_vectors(v_1,v_2) yields a vector
+        pointing in the same direction as v_2.
+        """
         v1 = v_1.normalized()
         v2 = v_2.normalized()
         dot = Vector3.dot_prod(v1, v2)
@@ -217,40 +275,70 @@ class Quaternion:
         return self
 
     def to_tuple(self) -> tuple[float, float, float, float]:
+        """Return a tuple representation of the quaternion
+        """
         return (self.x, self.y, self.z, self.w)
 
 
 class Vector3:
+    """A class representing a 3-dimensional Vector.
+
+    Instance Attributes:
+      - i: The i component of the vector.
+      - j: The i component of the vector.
+      - k: The i component of the vector.
+    """
     def __init__(self, i: float, j: float, k: float):
+        """Create a new Vector3 object.
+
+            i: The i component of the vector.
+            j: The i component of the vector.
+            k: The i component of the vector.
+        """
         self.i = i
         self.j = j
         self.k = k
 
-    def __eq__(self, other: Vector3) -> bool:
-        return all(self[i] == other[i] for i in range(3))
-
     def __neg__(self) -> Vector3:
+        """Return a Vector3 object with opposite direction.
+        """
         return Vector3(*(-1 * self[i] for i in range(3)))
 
     def __sub__(self, other: Vector3) -> Vector3:
+        """Return the difference between self and other.
+            other: Vector3 to subtract from self.
+        """
         return Vector3(self.i - other.i, self.j - other.j, self.k - other.k)
 
     def __add__(self, other: Vector3) -> Vector3:
+        """Return the sum of self and other.
+            other: Vector3 to add to self.
+        """
         return Vector3(self.i + other.i, self.j + other.j, self.k + other.k)
 
     # constants only
     def __mul__(self, other: float):
+        """Return the product of self and a constant.
+            other: A constant to multiply to self.
+        """
         return Vector3(self.i * other, self.j * other, self.k * other)
 
     def __rmul__(self, other: float):
+        """See __mul__.
+        """
         self.__mul__(other)
 
     def __iter__(self) -> float:
+        """Iterate between each component of the vector in ijk order.
+        """
         yield self.i
         yield self.j
         yield self.k
 
-    def __getitem__(self, item: int):
+    def __getitem__(self, item: int) -> float:
+        """Return the component of the vector after indexing.
+            item: Index of the vector. i = 0, j = 1, k = 2.
+        """
         if item == 0:
             return self.i
         if item == 1:
@@ -258,25 +346,31 @@ class Vector3:
         if item == 2:
             return self.k
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Return a string representation of the object for debugging"""
         return '({}, {}, {})'.format(self.i, self.j, self.k)
 
     def magnitude(self) -> float:
+        """Return the magnitude of the vector"""
         return math.sqrt(sum(self[i] ** 2 for i in range(3)))
 
     def copy(self) -> Vector3:
+        """Return a copy of the vector"""
         return Vector3(self.i, self.j, self.k)
 
     def to_tuple(self) -> tuple[float, float, float]:
+        """Return a tuple representation of the vector"""
         return (self.i, self.j, self.k)
 
     def normalize(self) -> None:
+        """Normalize the vector"""
         length = self.magnitude()
         self.i /= length
         self.j /= length
         self.k /= length
 
     def normalized(self) -> Vector3:
+        """Return a normalized version of this vector"""
         length = self.magnitude()
         i = self.i / length
         j = self.j / length
@@ -284,15 +378,24 @@ class Vector3:
         return Vector3(i, j, k)
 
     def dot_prod(self, other: Vector3) -> float:
+        """Return the dot product of self and other.
+            other: The other Vector
+        """
         return sum(self[i] * other[i] for i in range(3))
 
     def cross_prod(self, other: Vector3) -> Vector3:
+        """Return the cross product of self and other.
+            other: The second Vector
+        """
         i = self.j * other.k - self.k * other.j
         j = self.k * other.i - self.i * other.k
         k = self.i * other.j - self.j * other.i
         return Vector3(i, j, k)
 
     def rotate_by_quaternion(self, quaternion: Quaternion):
+        """Rotate self by quaternion.
+            quaternion: A Quaternion object.
+        """
         length = self.magnitude()
         self.normalize()
 
@@ -324,9 +427,13 @@ class Vector3:
         self.k *= length
 
     def scale_pixels_to_meter(self) -> None:
+        """Scale self from pixels to meters.
+        """
         self.i /= 17.0
         self.j /= 17.0
         self.k /= 17.0
 
     def scaled_pixels_to_meter(self) -> Vector3:
+        """Return a scaled version of self from pixels to meters.
+        """
         return Vector3(self.i / 17.0, self.j / 17.0, self.k / 17.0)

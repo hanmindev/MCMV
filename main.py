@@ -41,12 +41,30 @@ positioned = None
 
 class MainConverter:
     """The main converter class.
+
+    Instance Attributes:
+      - function_directory: The full directory for where all the functions are going to be placed.
+      - bones: A dictionary mapping bone_name strings to Bone objects.
+      - bone_list: A list of strings of bone names in the order they were read.
+      - frames: A list of Frame objects, such that the index is the frame number.
+      - aec_stand_pairs: A dictionary mapping the function name to a dictionary mapping the minecraft
+      bone name to an AecArmorStandPair object
+      - global_offset_fix: The position of the first AecArmorStandPair in the first frame. Later used
+      to offset coordinates such that the created armature is positioned at the root entity.
+      - commands_to_index: A dictionary mapping function name to an integer representing the length of
+      the animation in ticks,
+      - scale: A float representing the scale of the .bvh model to Minecraft.
     """
     bones: dict[str, Bone]
     frame_time = None
     frames: list[Frame]
 
-    def __init__(self, function_directory) -> None:
+    def __init__(self, function_directory: str) -> None:
+        """Initialize a new MainConverter class.
+            This will remove all folders in the directory
+
+            function_directory: A string of the function directory (absolute).
+        """
         self.function_directory = function_directory
         self.bones = {}
         self.bone_list = []
@@ -56,20 +74,27 @@ class MainConverter:
         self.commands_to_index = {}
         self.scale = 1.0
 
-        if 'functions' in function_directory and 'datapacks' in function_directory:
+        if 'functions' in function_directory and 'datapacks' in function_directory \
+                and 'functions' in function_directory[-10:len(function_directory)]:
             try:
                 shutil.rmtree(function_directory)
             except FileNotFoundError:
                 pass
         else:
-            assert 'Directory name does not include \'functions\' or \'datapacks\'!' \
+            assert 'Directory name does not include \'functions\' or \'datapacks\' ' \
+                   'or does not contain a folder following \'functions\' folder!' \
                    ' Are you sure this is the right directory?'
 
     def load_file(self, file_path: str, scale: float) -> None:
+        """Loads a .bvh file.
+
+            file_path: A string of the location of the .bvh file (relative).
+            scale: A float representing the scale that the .bvh file should be
+            scaled to in Minecraft.
+        """
         self.bones = {}
         self.bone_list = []
         self.frames = []
-        self.aec_stand_pairs = {}
         self.scale = scale
         self.global_offset_fix = None
         with open(file_path, encoding='utf-8') as file:
@@ -130,95 +155,16 @@ class MainConverter:
 
                             self.frames[-1].frame_bones[bone.bone_name] = FrameBone(bone.bone_name, channels)
 
-    # def convert_data(self, output_directory: str) -> None:
-    #     original_frames = 1 / self.frame_time
-    #     minecraft_frames = 20
-    #     skip_frames = round(original_frames / minecraft_frames)
-    # 
-    #     ticks = 0
-    #     try:
-    #         os.mkdir(output_directory)
-    #     except FileExistsError:
-    #         pass
-    #     complete_path = os.path.join(output_directory, 'test' + ".mcfunction")
-    #     open(complete_path, 'w').close()
-    #     f = open(complete_path, "a")
-    # 
-    #     for i in range(0, len(self.frames), skip_frames):
-    #         frame = self.frames[i]
-    # 
-    #         # function indexing
-    #         pre_command = 'execute if score global animation_time matches ' + str(ticks) + ' run '
-    #         f.write(pre_command + 'function animate:armature/test' + str(ticks) + '\n')
-    # 
-    #         # per function
-    #         complete_path = os.path.join(output_directory, 'test' + str(ticks) + ".mcfunction")
-    #         open(complete_path, 'w').close()
-    #         g = open(complete_path, "a")
-    # 
-    #         for command in self.armature_construction(frame):
-    #             g.write(command + "\n")
-    # 
-    #         ticks += 1
-    # 
-    #         g.close()
-    #     f.close()
-    # 
-    # def armature_construction(self, frame: Frame) -> list[str]:
-    #     commands = []
-    #     useful_bones = set(BONE_MAPPER.values())
-    # 
-    #     def dfs(frame_bone, parent_pos, parent_rot) -> None:
-    #         # skip extra bones
-    #         if frame_bone.bone_name not in useful_bones:
-    #             return None
-    # 
-    #         # Rotate the bone by the parent
-    #         bone_vector = Vector3(*frame_bone.channels[0:3])
-    #         bone_vector.rotate_by_quaternion(parent_rot)
-    # 
-    #         # Fix the new rotation
-    #         child_rot = Quaternion().set_from_euler(Euler('xyz', *frame_bone.channels[3:6]))
-    #         child_rot.parent(parent_rot)
-    # 
-    #         child_pos = parent_pos + bone_vector
-    # 
-    #         # display
-    #         if frame_bone.bone_name not in {'Hip', 'PositionOffset'}:
-    #             vector_step = bone_vector * 0.1
-    # 
-    #             # in between stone
-    #             for i in range(10):
-    #                 xyz = ('{:f}'.format(j * 100) for j in parent_pos + vector_step * (i + 0.5))
-    # 
-    #                 commands.append(
-    #                     'summon minecraft:falling_block ' + ' '.join(xyz) +
-    #                     ' {NoGravity:true,BlockState:{Name:"minecraft:stone"}}')
-    #             xyz = ('{:f}'.format(i * 100) for i in child_pos)
-    # 
-    #             # node
-    #             commands.append(
-    #                 'summon minecraft:falling_block ' + ' '.join(xyz) +
-    #                 ' {NoGravity:true,BlockState:{Name:"minecraft:diamond_block"},'
-    #                 'CustomNameVisible: 1b, CustomName: \'{"text": "' + frame_bone.bone_name + '"}\'' + '}')
-    # 
-    #         # recursion
-    #         bone = self.bones[frame_bone.bone_name]
-    #         children = bone.children
-    # 
-    #         for child in children:
-    #             if child == 'Site':
-    #                 continue
-    #             dfs(frame.frame_bones[child], child_pos, child_rot)
-    # 
-    #     initial_frame_bone = frame.frame_bones[BONE_MAPPER['main']]
-    #     origin = Vector3(0, 1, 0)
-    #     origin_rot = Quaternion(0, 0, 0, 1)
-    #     dfs(initial_frame_bone, origin, origin_rot)
-    #     return commands
+    def globalize_frame_armature(self, function_name: str, frame: Frame, initial_frame_bone_name: str) -> \
+            dict[str, GlobalBone]:
+        """Loads a .bvh file.
 
-    def globalize_frame_armature(self, frame: Frame, initial_frame_bone_name: str) -> dict[str, GlobalBone]:
-        armorstand_bone_set = set(BONE_MAPPER[i] for i in self.aec_stand_pairs)
+            function_name: Name of the Minecraft function (e.g. could be name of the character, armature_001, etc)
+            frame: A single Frame object used to create the armature.
+            initial_frame_bone_name: Name of the root bone (e.g. Root, PositionOffset, etc.)
+            Should be dependent on the .bvh file, and should be a value of BONE_MAPPER
+        """
+        armorstand_bone_set = set(BONE_MAPPER[i] for i in self.aec_stand_pairs[function_name])
         global positioned
         positioned = False
         fix_position = False
@@ -250,7 +196,8 @@ class MainConverter:
                     positioned = True
 
                     # Rotate the bone by the parent
-                    this_aec_stand_pair = self.aec_stand_pairs[BONE_MAPPER_REVERSED[frame_bone.bone_name]]
+                    this_aec_stand_pair = self.aec_stand_pairs[function_name][BONE_MAPPER_REVERSED[
+                        frame_bone.bone_name]]
                     bone_offset_vector = this_aec_stand_pair.offset.copy()
                     bone_size_vector = this_aec_stand_pair.size.copy()
                     t_pose_vector = this_aec_stand_pair.t_pose.copy()
@@ -301,7 +248,25 @@ class MainConverter:
                                               Optional[Vector3],
                                               Optional[Vector3],
                                               Optional[Vector3],
-                                              str]]):
+                                              str]]) -> None:
+        """Loads a .bvh file.
+
+            function_name: Name of the Minecraft function (e.g. could be name of the character, armature_001, etc)
+            root_bone_name: Name of the root bone (e.g. 'main'). Should be a key in BONE_MAPPER
+            root_uuid: UUID of the root entity that the armature is positioned at.
+            (e.g. 54e5e739-9221-45fc-a06f-b5326d174cf7)
+            stands: A list of tuples containing information for an AEC-ArmorStand Pair:
+                Name of the bone (should be a key in BONE_MAPPER)
+                UUID of the AEC (e.g. 2f9d6e9a-aaca-4964-9059-ec43f2016499)
+                UUID of the Armor Stand (e.g. 19c4830d-8714-4e62-b041-0cde12b6de96)
+                The size of the bone as a Vector3 object
+                The offset of the bone as a Vector3 object
+                The initial direction of the bone as a Vector3 object (The vector that the bone would
+                    be pointing towards as default (e.g. if your .bvh model initially is doing a T-Pose,
+                    the right arm would have the vector (-1.0, 0.0, 0.0).)
+                A string representation of the Minecraft item to be displayed. (e.g. diamond_hoe{CustomModelData:100}
+        """
+        # Calculates how many frames to skip since Minecraft commands run on 20Hz.
         minecraft_frames = 20
         initial_frame_bone_name = BONE_MAPPER[root_bone_name]
 
@@ -309,9 +274,9 @@ class MainConverter:
         skip_frames = round(original_frames / minecraft_frames)
         ticks = 0
         # import all the armor stands
-        self.aec_stand_pairs = {}
+        self.aec_stand_pairs[function_name] = {}
         for stand in stands:
-            self.aec_stand_pairs[stand[0]] = AecArmorStandPair(*stand[0:7])
+            self.aec_stand_pairs[function_name][stand[0]] = AecArmorStandPair(*stand[0:7])
 
         try:
             os.mkdir(self.function_directory)
@@ -327,12 +292,12 @@ class MainConverter:
 
             # per tick file
             frame = self.frames[i]
-            frame_armature = self.globalize_frame_armature(frame, initial_frame_bone_name)
+            frame_armature = self.globalize_frame_armature(function_name, frame, initial_frame_bone_name)
 
             commands = []
 
-            for stand_name in self.aec_stand_pairs:
-                aec_stand_pair = self.aec_stand_pairs[stand_name]
+            for stand_name in self.aec_stand_pairs[function_name]:
+                aec_stand_pair = self.aec_stand_pairs[function_name][stand_name]
                 global_bone = frame_armature[BONE_MAPPER[stand_name]]
 
                 command = aec_stand_pair.return_transformation_command(
@@ -353,17 +318,30 @@ class MainConverter:
         if function_name not in self.commands_to_index or self.commands_to_index[function_name] > ticks - 1:
             self.commands_to_index[function_name] = ticks - 1
 
-    def reset_function(self):
+    def reset_function(self, function_name: str) -> None:
+        """Write commands to remove and summon necessary AEC-Stand pairs.
+        This will not overwrite the function so reset_function can be called with different
+        function_names.
+
+            function_name: name of the function group (e.g. armature_001)
+        """
         complete_path = os.path.join(self.function_directory, 'reset' + ".mcfunction")
         f = open(complete_path, "a")
 
         commands = []
-        for aec_stand_pair in self.aec_stand_pairs:
-            commands += self.aec_stand_pairs[aec_stand_pair].return_reset_commands()
+        for aec_stand_pair in self.aec_stand_pairs[function_name]:
+            commands += self.aec_stand_pairs[function_name][aec_stand_pair].return_reset_commands()
         f.write('\n'.join(commands)+'\n')
         f.close()
 
-    def search_function(self, function_name):
+    def search_function(self, function_name: str) -> None:
+        """Write commands to index the correct .mcfunction file to run the animation.
+        Currently the search used is linear. Could be drastically improved by using a
+        binary search but currently it runs fine on my machine so it'll be something
+        I'll do in the future.
+
+            function_name: name of the function group (e.g. armature_001)
+        """
         complete_path = os.path.join(self.function_directory, 'main' + ".mcfunction")
         f = open(complete_path, "a")
 
@@ -373,509 +351,3 @@ class MainConverter:
             f.write(pre_command + 'function ' + utility.get_function_directory(self.function_directory,
                                                                                function_name) + '/' + str(ticks) + '\n')
         f.close()
-
-
-if __name__ == '__main__':
-    converter = MainConverter('C:/Users/Hanmin/AppData/Roaming/.minecraft/saves/Project '
-                              'Sekai/datapacks/prsk/data/animate/functions/armor_stand')
-    converter.load_file('data/ichika.bvh', 2.0)
-    # converter.convert_data('C:/Users/Hanmin/AppData/Roaming/.minecraft/saves/Project '
-    #                        'Sekai/datapacks/prsk/data/animate/functions/armature')
-
-    # size, offset, t-pose
-    converter.globalize_armature('ichika', 'main', '54e5e739-9221-45fc-a06f-b5326d174cf7',
-                                 [('head',
-                                   '2f9d6e9a-aaca-4964-9059-ec43f2016499',
-                                   '19c4830d-8714-4e62-b041-0cde12b6de96',
-                                   Vector3(0.0, 8.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 1.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 1.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:101}'
-                                   ),
-                                  ('body',
-                                   '41451f74-0acb-4406-a42f-cc90a4a04c9b',
-                                   '530b439d-1760-4652-93a7-3320f269358a',
-                                   Vector3(0.0, 12.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 1.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:102}'
-                                   ),
-                                  ('right_arm',
-                                   '11dc3ca9-72b0-41e5-a25e-732749eb5370',
-                                   'ad9573a4-361e-417c-8494-bf93c1cf44ef',
-                                   Vector3(0.0, -5.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(-4.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(-1.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:103}'
-                                   ),
-                                  ('right_elbow',
-                                   '2ab7eb3a-be71-4ac8-9c7d-dd2923646c9a',
-                                   '1d6e6d29-8aeb-9678-8321-594123d6d035',
-                                   Vector3(0.0, -4.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(-1.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:104}'
-                                   ),
-                                  ('left_arm',
-                                   'd931c78e-ef11-4f37-92f6-d10a7c595f9c',
-                                   'fe0ebeb5-9553-4455-8a78-1759237a1ae1',
-                                   Vector3(0.0, -5.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(4.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(1.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:105}'
-                                   ),
-                                  ('left_elbow',
-                                   '2ab7eb3a-be71-4ac8-9c7d-dd29d5646c9a',
-                                   '1d6e6d29-8aeb-9678-8321-594151d6d035',
-                                   Vector3(0.0, -4.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(1.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:106}'
-                                   ),
-                                  ('right_thigh',
-                                   '1f4134e3-2608-4d8d-8f10-d687549cb46d',
-                                   '2ea57372-4206-428f-9b4c-7c946d247270',
-                                   Vector3(0.0, -6.5, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(-2.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, -1.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:107}'
-                                   ),
-                                  ('right_knee',
-                                   '1f4134e3-2608-4d8d-8f10-d6875123b46d',
-                                   '2ea57372-4206-428f-9b4c-7c9461237270',
-                                   Vector3(0.0, -6.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 0.0, 2.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, -1.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:108}'
-                                   ),
-                                  ('left_thigh',
-                                   'dada4315-783e-45d9-990d-418a3284db9a',
-                                   '3c49fedd-ad2d-46dc-a3fd-fed469eb6d02',
-                                   Vector3(0.0, -6.5, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(2.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, -1.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:109}'
-                                   ),
-                                  ('left_knee',
-                                   'dada1235-783e-45d9-990d-418a3284db9a',
-                                   '3c49123d-ad2d-46dc-a3fd-fed469eb6d02',
-                                   Vector3(0.0, -6.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 0.0, 2.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, -1.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:110}'
-                                   )
-                                  ]
-                                 )
-    converter.reset_function()
-    converter.load_file('data/shiho.bvh', 2.0)
-    converter.globalize_armature('shiho', 'main', '3888fe0d-41b5-46ad-9740-797228c6c3c3',
-                                 [('head',
-                                   '2f9d6e9a-aaca-1234-9059-ec43f2016499',
-                                   '19c4830d-8714-1234-b041-0cde12b6de96',
-                                   Vector3(0.0, 8.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 1.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 1.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:111}'
-                                   ),
-                                  ('body',
-                                   '41451f74-0acb-1234-a42f-cc90a4a04c9b',
-                                   '530b439d-1760-1234-93a7-3320f269358a',
-                                   Vector3(0.0, 12.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 1.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:112}'
-                                   ),
-                                  ('right_arm',
-                                   '11dc3ca9-72b0-1234-a25e-732749eb5370',
-                                   'ad9573a4-361e-1234-8494-bf93c1cf44ef',
-                                   Vector3(0.0, -5.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(-4.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(-1.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:113}'
-                                   ),
-                                  ('right_elbow',
-                                   '2ab7eb3a-be71-1234-9c7d-dd2923646c9a',
-                                   '1d6e6d29-8aeb-1234-8321-594123d6d035',
-                                   Vector3(0.0, -4.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(-1.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:114}'
-                                   ),
-                                  ('left_arm',
-                                   'd931c78e-ef11-1234-92f6-d10a7c595f9c',
-                                   'fe0ebeb5-9553-1234-8a78-1759237a1ae1',
-                                   Vector3(0.0, -5.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(4.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(1.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:115}'
-                                   ),
-                                  ('left_elbow',
-                                   '2ab7eb3a-be71-1234-9c7d-dd29d5646c9a',
-                                   '1d6e6d29-8aeb-1234-8321-594151d6d035',
-                                   Vector3(0.0, -4.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(1.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:116}'
-                                   ),
-                                  ('right_thigh',
-                                   '1f4134e3-2608-1234-8f10-d687549cb46d',
-                                   '2ea57372-4206-1234-9b4c-7c946d247270',
-                                   Vector3(0.0, -6.5, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(-2.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, -1.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:117}'
-                                   ),
-                                  ('right_knee',
-                                   '1f4134e3-2608-1234-8f10-d6875123b46d',
-                                   '2ea57372-4206-1234-9b4c-7c9461237270',
-                                   Vector3(0.0, -6.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 0.0, 2.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, -1.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:118}'
-                                   ),
-                                  ('left_thigh',
-                                   'dada4315-783e-1234-990d-418a3284db9a',
-                                   '3c49fedd-ad2d-1234-a3fd-fed469eb6d02',
-                                   Vector3(0.0, -6.5, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(2.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, -1.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:119}'
-                                   ),
-                                  ('left_knee',
-                                   'dada1235-783e-1234-990d-418a3284db9a',
-                                   '3c49123d-ad2d-1234-a3fd-fed469eb6d02',
-                                   Vector3(0.0, -6.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 0.0, 2.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, -1.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:120}'
-                                   )
-                                  ]
-                                 )
-    converter.reset_function()
-    converter.load_file('data/honami.bvh', 2.0)
-    converter.globalize_armature('honami', 'main', 'b5f2ae0c-ee4a-49c1-a16a-335883c5eb2f',
-                                 [('head',
-                                   '2f9d6e9a-aaca-3456-9059-ec43f2016499',
-                                   '19c4830d-8714-3456-b041-0cde12b6de96',
-                                   Vector3(0.0, 8.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 1.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 1.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:121}'
-                                   ),
-                                  ('body',
-                                   '41451f74-0acb-3456-a42f-cc90a4a04c9b',
-                                   '530b439d-1760-3456-93a7-3320f269358a',
-                                   Vector3(0.0, 12.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 1.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:122}'
-                                   ),
-                                  ('right_arm',
-                                   '11dc3ca9-72b0-3456-a25e-732749eb5370',
-                                   'ad9573a4-361e-3456-8494-bf93c1cf44ef',
-                                   Vector3(0.0, -5.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(-4.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(-1.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:123}'
-                                   ),
-                                  ('right_elbow',
-                                   '2ab7eb3a-be71-3456-9c7d-dd2923646c9a',
-                                   '1d6e6d29-8aeb-3456-8321-594123d6d035',
-                                   Vector3(0.0, -4.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(-1.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:124}'
-                                   ),
-                                  ('right_wrist',
-                                   '2ab7eb3a-be71-8258-9c7d-dd2923646c9a',
-                                   '1d6e6d29-8aeb-4394-8321-594123d6d035',
-                                   Vector3(0.0, -4.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(-1.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:154}'
-                                   ),
-                                  ('left_arm',
-                                   'd931c78e-ef11-3456-92f6-d10a7c595f9c',
-                                   'fe0ebeb5-9553-3456-8a78-1759237a1ae1',
-                                   Vector3(0.0, -5.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(4.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(1.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:125}'
-                                   ),
-                                  ('left_elbow',
-                                   '2ab7eb3a-be71-3456-9c7d-dd29d5646c9a',
-                                   '1d6e6d29-8aeb-3456-8321-594151d6d035',
-                                   Vector3(0.0, -4.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(1.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:126}'
-                                   ),
-                                  ('left_wrist',
-                                   '2ab7eb3a-be71-5430-9c7d-dd29d5646c9a',
-                                   '1d6e6d29-8aeb-3754-8321-594151d6d035',
-                                   Vector3(0.0, -4.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(1.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:154}'
-                                   ),
-                                  ('right_thigh',
-                                   '1f4134e3-2608-3456-8f10-d687549cb46d',
-                                   '2ea57372-4206-3456-9b4c-7c946d247270',
-                                   Vector3(0.0, -6.5, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(-2.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, -1.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:127}'
-                                   ),
-                                  ('right_knee',
-                                   '1f4134e3-2608-3456-8f10-d6875123b46d',
-                                   '2ea57372-4206-3456-9b4c-7c9461237270',
-                                   Vector3(0.0, -6.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 0.0, 2.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, -1.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:128}'
-                                   ),
-                                  ('left_thigh',
-                                   'dada4315-783e-3456-990d-418a3284db9a',
-                                   '3c49fedd-ad2d-3456-a3fd-fed469eb6d02',
-                                   Vector3(0.0, -6.5, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(2.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, -1.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:129}'
-                                   ),
-                                  ('left_knee',
-                                   'dada1235-783e-3456-990d-418a3284db9a',
-                                   '3c49123d-ad2d-3456-a3fd-fed469eb6d02',
-                                   Vector3(0.0, -6.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 0.0, 2.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, -1.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:130}'
-                                   )
-                                  ]
-                                 )
-    converter.reset_function()
-    converter.load_file('data/saki.bvh', 2.0)
-    converter.globalize_armature('saki', 'main', 'f3560c07-b59e-40ac-a4f6-4e5b868c5839',
-                                 [('head',
-                                   '2f9d6e9a-aaca-4567-9059-ec43f2016499',
-                                   '19c4830d-8714-4567-b041-0cde12b6de96',
-                                   Vector3(0.0, 8.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 1.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 1.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:131}'
-                                   ),
-                                  ('body',
-                                   '41451f74-0acb-4567-a42f-cc90a4a04c9b',
-                                   '530b439d-1760-4567-93a7-3320f269358a',
-                                   Vector3(0.0, 12.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 1.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:132}'
-                                   ),
-                                  ('right_arm',
-                                   '11dc3ca9-72b0-4567-a25e-732749eb5370',
-                                   'ad9573a4-361e-4567-8494-bf93c1cf44ef',
-                                   Vector3(0.0, -5.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(-4.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(-1.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:133}'
-                                   ),
-                                  ('right_elbow',
-                                   '2ab7eb3a-be71-4567-9c7d-dd2923646c9a',
-                                   '1d6e6d29-8aeb-4567-8321-594123d6d035',
-                                   Vector3(0.0, -4.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(-1.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:134}'
-                                   ),
-                                  ('left_arm',
-                                   'd931c78e-ef11-4567-92f6-d10a7c595f9c',
-                                   'fe0ebeb5-9553-4567-8a78-1759237a1ae1',
-                                   Vector3(0.0, -5.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(4.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(1.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:135}'
-                                   ),
-                                  ('left_elbow',
-                                   '2ab7eb3a-be71-4567-9c7d-dd29d5646c9a',
-                                   '1d6e6d29-8aeb-4567-8321-594151d6d035',
-                                   Vector3(0.0, -4.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(1.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:136}'
-                                   ),
-                                  ('right_thigh',
-                                   '1f4134e3-2608-4567-8f10-d687549cb46d',
-                                   '2ea57372-4206-4567-9b4c-7c946d247270',
-                                   Vector3(0.0, -6.5, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(-2.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, -1.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:137}'
-                                   ),
-                                  ('right_knee',
-                                   '1f4134e3-2608-4567-8f10-d6875123b46d',
-                                   '2ea57372-4206-4567-9b4c-7c9461237270',
-                                   Vector3(0.0, -6.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 0.0, 2.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, -1.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:138}'
-                                   ),
-                                  ('left_thigh',
-                                   'dada4315-783e-4567-990d-418a3284db9a',
-                                   '3c49fedd-ad2d-4567-a3fd-fed469eb6d02',
-                                   Vector3(0.0, -6.5, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(2.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, -1.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:139}'
-                                   ),
-                                  ('left_knee',
-                                   'dada1235-783e-4567-990d-418a3284db9a',
-                                   '3c49123d-ad2d-4567-a3fd-fed469eb6d02',
-                                   Vector3(0.0, -6.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 0.0, 2.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, -1.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:140}'
-                                   )
-                                  ]
-                                 )
-    converter.reset_function()
-    converter.load_file('data/miku.bvh', 2.0)
-    converter.globalize_armature('miku', 'main', '58eee451-d736-4207-affc-e730d75872fe',
-                                 [('head',
-                                   '2f9d6e9a-7654-4567-9059-ec43f2016499',
-                                   '19c4830d-7654-4567-b041-0cde12b6de96',
-                                   Vector3(0.0, 8.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 1.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 1.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:141}'
-                                   ),
-                                  ('body',
-                                   '41451f74-7654-4567-a42f-cc90a4a04c9b',
-                                   '530b439d-7645-4567-93a7-3320f269358a',
-                                   Vector3(0.0, 12.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 1.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:142}'
-                                   ),
-                                  ('right_arm',
-                                   '11dc3ca9-7645-4567-a25e-732749eb5370',
-                                   'ad9573a4-7654-4567-8494-bf93c1cf44ef',
-                                   Vector3(0.0, -5.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(-4.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(-1.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:143}'
-                                   ),
-                                  ('right_elbow',
-                                   '2ab7eb3a-7645-4567-9c7d-dd2923646c9a',
-                                   '1d6e6d29-7645-4567-8321-594123d6d035',
-                                   Vector3(0.0, -4.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(-1.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:144}'
-                                   ),
-                                  ('left_arm',
-                                   'd931c78e-7645-4567-92f6-d10a7c595f9c',
-                                   'fe0ebeb5-7645-4567-8a78-1759237a1ae1',
-                                   Vector3(0.0, -5.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(4.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(1.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:145}'
-                                   ),
-                                  ('left_elbow',
-                                   '2ab7eb3a-7654-4567-9c7d-dd29d5646c9a',
-                                   '1d6e6d29-7654-4567-8321-594151d6d035',
-                                   Vector3(0.0, -4.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(1.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:146}'
-                                   ),
-                                  ('right_thigh',
-                                   '1f4134e3-7654-4567-8f10-d687549cb46d',
-                                   '2ea57372-7654-4567-9b4c-7c946d247270',
-                                   Vector3(0.0, -6.5, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(-2.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, -1.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:147}'
-                                   ),
-                                  ('right_knee',
-                                   '1f4134e3-7645-4567-8f10-d6875123b46d',
-                                   '2ea57372-7645-4567-9b4c-7c9461237270',
-                                   Vector3(0.0, -6.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 0.0, 2.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, -1.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:148}'
-                                   ),
-                                  ('left_thigh',
-                                   'dada4315-7654-4567-990d-418a3284db9a',
-                                   '3c49fedd-7645-4567-a3fd-fed469eb6d02',
-                                   Vector3(0.0, -6.5, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(2.0, 0.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, -1.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:149}'
-                                   ),
-                                  ('left_knee',
-                                   'dada1235-7645-4567-990d-418a3284db9a',
-                                   '3c49123d-7654-4567-a3fd-fed469eb6d02',
-                                   Vector3(0.0, -6.0, 0.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, 0.0, 2.0).scaled_pixels_to_meter(),
-                                   Vector3(0.0, -1.0, 0.0).scaled_pixels_to_meter(),
-                                   'diamond_hoe{CustomModelData:150}'
-                                   )
-                                  ]
-                                 )
-    converter.reset_function()
-    converter.search_function('ichika')
-    converter.search_function('shiho')
-    converter.search_function('honami')
-    converter.search_function('saki')
-    converter.search_function('miku')
-
-# if __name__ == '__main__':
-#     converter = MainConverter('C:/Users/Hanmin/AppData/Roaming/.minecraft/saves/Project '
-#                               'Sekai/datapacks/prsk/data/animate/functions/guitar')
-#     converter.load_file('data/shiho_guitar.bvh', 0.0)
-#     # size, offset, t-pose
-#     converter.globalize_armature('shiho_guitar', 'main', '41451f74-0acb-1234-a42f-cc90a4a04c9b',
-#                                  [('guitar',
-#                                    '2f9d6e9a-7428-4964-9059-ec43f2016499',
-#                                    '19c4830d-2954-4e62-b041-0cde12b6de96',
-#                                    Vector3(1.0, 0.0, 0.0).scaled_pixels_to_meter(),
-#                                    Vector3(0.0, 24.0, 5.0).scaled_pixels_to_meter(),
-#                                    Vector3(1.0, 0.0, 0.0).scaled_pixels_to_meter(),
-#                                    'diamond_hoe{CustomModelData:152}'
-#                                    )
-#                                   ]
-#                                  )
-#     converter.reset_function()
-#
-#     converter.load_file('data/ichika_guitar.bvh', 0.0)
-#     # size, offset, t-pose
-#     converter.globalize_armature('ichika_guitar', 'main', '41451f74-0acb-4406-a42f-cc90a4a04c9b',
-#                                  [('guitar',
-#                                    '2f9d6e9a-7428-4964-2347-ec43f2016499',
-#                                    '19c4830d-2954-4e62-2463-0cde12b6de96',
-#                                    Vector3(1.0, 0.0, 0.0).scaled_pixels_to_meter(),
-#                                    Vector3(0.0, 24.0, 5.0).scaled_pixels_to_meter(),
-#                                    Vector3(1.0, 0.0, 0.0).scaled_pixels_to_meter(),
-#                                    'diamond_hoe{CustomModelData:151}'
-#                                    )
-#                                   ]
-#                                  )
-#     converter.reset_function()
-#
-#     converter.load_file('data/miku_guitar.bvh', 0.0)
-#     # size, offset, t-pose
-#     converter.globalize_armature('miku_guitar', 'main', '41451f74-7654-4567-a42f-cc90a4a04c9b',
-#                                  [('guitar',
-#                                    '2f9d6e9a-7428-7424-2347-ec43f2016499',
-#                                    '19c4830d-2954-8543-2463-0cde12b6de96',
-#                                    Vector3(1.0, 0.0, 0.0).scaled_pixels_to_meter(),
-#                                    Vector3(24.0, 5.0, -5.0).scaled_pixels_to_meter(),
-#                                    Vector3(1.0, 0.0, 0.0).scaled_pixels_to_meter(),
-#                                    'diamond_hoe{CustomModelData:153}'
-#                                    )
-#                                   ]
-#                                  )
-#     converter.reset_function()
-#     converter.search_function('shiho_guitar')
-#     converter.search_function('ichika_guitar')
-#     converter.search_function('miku_guitar')

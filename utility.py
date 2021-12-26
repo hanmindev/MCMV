@@ -2,6 +2,7 @@ from typing import Optional
 
 
 def tuple_to_m_list(tup: tuple, c: str = '') -> str:
+    """Return a string representation of a tuple to be used as an NBT list in Minecraft."""
     if type(tup[0]) is float:
         return '[' + ', '.join(tuple('{:f}'.format(i) + c for i in tup)) + ']'
     else:
@@ -9,6 +10,7 @@ def tuple_to_m_list(tup: tuple, c: str = '') -> str:
 
 
 def uuid_str_to_uuid_nbt(uuid: str) -> str:
+    """Return a string representation of a integer list UUID-format converted from a normal UUID format."""
     split_uuid = uuid.split('-')
     a = split_uuid[0]
     b = split_uuid[1] + split_uuid[2]
@@ -19,6 +21,7 @@ def uuid_str_to_uuid_nbt(uuid: str) -> str:
 
 
 def get_function_directory(directory: str, file: Optional[str]) -> str:
+    """Return a function directory  from the directory and file that Minecraft uses to look up functions."""
     directory_list = directory.split('/')
     if directory_list[-1] == '':
         directory_list.pop()
