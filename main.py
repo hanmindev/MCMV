@@ -6,58 +6,40 @@ import utility
 from entities import AecArmorStandPair, Bone, FrameBone, Frame, GlobalBone
 from math_objects import Euler, Vector3, Quaternion
 
-# Maps .bvh names to names that this python script understands.
-BONE_MAPPER = {
-    'main': 'PositionOffset',
-    'hip': 'Hip',
-    'left_thigh': 'Left_Thigh',
-    'left_knee': 'Left_Knee',
-    'left_foot': 'Left_Ankle',
-    'right_thigh': 'Right_Thigh',
-    'right_knee': 'Right_Knee',
-    'right_foot': 'Right_Ankle',
-    'back_0': 'Waist',
-    'back_1': 'Spine',
-    'back_2': 'Chest',
-    'left_shoulder': 'Left_Shoulder',
-    'left_arm': 'Left_Arm',
-    'left_elbow': "Left_Elbow",
-    'left_wrist': "Left_Wrist",
-    'right_shoulder': 'Right_Shoulder',
-    'right_arm': 'Right_Arm',
-    'right_elbow': 'Right_Elbow',
-    'right_wrist': 'Right_Wrist',
-    'head': 'Neck',
-    'body': 'Waist',
-    'guitar': 'Guitar'
-
-}
-
-BONE_MAPPER_REVERSED = {}
-for key in BONE_MAPPER:
-    BONE_MAPPER_REVERSED[BONE_MAPPER[key]] = key
-positioned = None
-
 
 class MainConverter:
     """The main converter class.
 
     Instance Attributes:
       - function_directory: The full directory for where all the functions are going to be placed.
-      - bones: A dictionary mapping bone_name strings to Bone objects.
-      - bone_list: A list of strings of bone names in the order they were read.
-      - frames: A list of Frame objects, such that the index is the frame number.
-      - aec_stand_pairs: A dictionary mapping the function name to a dictionary mapping the minecraft
-      bone name to an AecArmorStandPair object
-      - global_offset_fix: The position of the first AecArmorStandPair in the first frame. Later used
-      to offset coordinates such that the created armature is positioned at the root entity.
-      - commands_to_index: A dictionary mapping function name to an integer representing the length of
-      the animation in ticks,
       - scale: A float representing the scale of the .bvh model to Minecraft.
+      - bones: A dictionary mapping bone_name strings to Bone objects.
+      - frames: A list of Frame objects, such that the index is the frame number.
     """
+    # Private Instance Attributes:
+    # - _bone_list: A list of strings of bone names in the order they were read.
+    # - _aec_stand_pairs: A dictionary mapping the function name to a dictionary mapping the minecraft
+    # bone name to an AecArmorStandPair object
+    # - _global_offset_fix: The position of the first AecArmorStandPair in the first frame. Later used
+    # to offset coordinates such that the created armature is positioned at the root entity.
+    # - _commands_to_index: A dictionary mapping function name to an integer representing the length of
+    # the animation in ticks,
+    # - _useful_bones: A set of all bones to be read in the program.
+    # - _order: The Euler rotation order for this file.
+    # - _frame_time: Seconds between frames.
+
+    function_directory: str
+    scale: float
     bones: dict[str, Bone]
-    frame_time = None
     frames: list[Frame]
+
+    _bone_list: list[str]
+    _aec_stand_pairs: dict[str: dict[str: AecArmorStandPair]]
+    _global_offset_fix: Optional[Vector3]
+    _commands_to_index: dict[str: int]
+    _useful_bones: set
+    _order: Optional[str]
+    _frame_time: Optional[float]
 
     def __init__(self, function_directory: str) -> None:
         """Initialize a new MainConverter class.
@@ -67,25 +49,29 @@ class MainConverter:
         """
         self.function_directory = function_directory
         self.bones = {}
-        self.bone_list = []
+        self._bone_list = []
         self.frames = []
-        self.aec_stand_pairs = {}
-        self.global_offset_fix = None
-        self.commands_to_index = {}
+        self._aec_stand_pairs = {}
+        self._global_offset_fix = None
+        self._commands_to_index = {}
         self.scale = 1.0
+        self._useful_bones = set()
+        self._order = None
+        self._frame_time = None
 
         if 'functions' in function_directory and 'datapacks' in function_directory \
-                and 'functions' in function_directory[-10:len(function_directory)]:
+                and 'functions' not in function_directory[-10:len(function_directory)]:
             try:
                 shutil.rmtree(function_directory)
             except FileNotFoundError:
                 pass
         else:
-            assert 'Directory name does not include \'functions\' or \'datapacks\' ' \
-                   'or does not contain a folder following \'functions\' folder!' \
-                   ' Are you sure this is the right directory?'
+            print('Directory name does not include \'functions\' or \'datapacks\' '
+                  'or does not contain a folder following \'functions\' folder!'
+                  ' Are you sure this is the right directory?')
+            quit()
 
-    def load_file(self, file_path: str, scale: float) -> None:
+    def load_file(self, file_path: str, scale: float, order: str = 'xyz') -> None:
         """Loads a .bvh file.
 
             file_path: A string of the location of the .bvh file (relative).
@@ -93,10 +79,11 @@ class MainConverter:
             scaled to in Minecraft.
         """
         self.bones = {}
-        self.bone_list = []
+        self._bone_list = []
         self.frames = []
         self.scale = scale
-        self.global_offset_fix = None
+        self._global_offset_fix = None
+        self._order = order
         with open(file_path, encoding='utf-8') as file:
             parent_stack = []
             mode = 0
@@ -112,7 +99,7 @@ class MainConverter:
                         if len(parent_stack) > 0:
                             self.bones[bone_name].parent = parent_stack[-1]
                             self.bones[parent_stack[-1]].children.add(bone_name)
-                        self.bone_list.append(bone_name)
+                        self._bone_list.append(bone_name)
                         parent_stack.append(bone_name)
 
                     elif words[0] == '{':
@@ -137,13 +124,13 @@ class MainConverter:
                     if words[0] == 'MOTION' or words[0] == 'Frames:':
                         pass
                     elif words[0] == 'Frame' and words[1] == 'Time:':
-                        self.frame_time = float(words[2])
+                        self._frame_time = float(words[2])
                     elif len(words[0]) == 0:
                         pass
                     else:
                         index_start = 0
                         self.frames.append(Frame())
-                        for bone_name in self.bone_list:
+                        for bone_name in self._bone_list:
                             if bone_name == 'Site':
                                 continue
                             bone = self.bones[bone_name]
@@ -164,22 +151,22 @@ class MainConverter:
             initial_frame_bone_name: Name of the root bone (e.g. Root, PositionOffset, etc.)
             Should be dependent on the .bvh file, and should be a value of BONE_MAPPER
         """
-        armorstand_bone_set = set(BONE_MAPPER[i] for i in self.aec_stand_pairs[function_name])
+        armorstand_bone_set = set(self._aec_stand_pairs[function_name].keys())
         global positioned
         positioned = False
         fix_position = False
-        if self.global_offset_fix is None:
-            self.global_offset_fix = Vector3(0.0, 0.0, 0.0)
+        if self._global_offset_fix is None:
+            self._global_offset_fix = Vector3(0.0, 0.0, 0.0)
             fix_position = True
 
         def dfs(frame_bone, parent_pos, parent_rot, fix_position) -> None:
             global positioned
             # skip extra bones
-            if frame_bone.bone_name not in useful_bones:
+            if frame_bone.bone_name not in self._useful_bones:
                 return None
 
             # Fix the new rotation
-            child_rot = Quaternion().set_from_euler(Euler('xyz', *frame_bone.channels[3:6]))
+            child_rot = Quaternion().set_from_euler(Euler(self._order, *frame_bone.channels[3:6]))
             child_rot.parent(parent_rot)
 
             if positioned and frame_bone.bone_name not in armorstand_bone_set:
@@ -196,8 +183,7 @@ class MainConverter:
                     positioned = True
 
                     # Rotate the bone by the parent
-                    this_aec_stand_pair = self.aec_stand_pairs[function_name][BONE_MAPPER_REVERSED[
-                        frame_bone.bone_name]]
+                    this_aec_stand_pair = self._aec_stand_pairs[function_name][frame_bone.bone_name]
                     bone_offset_vector = this_aec_stand_pair.offset.copy()
                     bone_size_vector = this_aec_stand_pair.size.copy()
                     t_pose_vector = this_aec_stand_pair.t_pose.copy()
@@ -210,7 +196,7 @@ class MainConverter:
                     # Rotate the bone by the parent
                     bone_offset_vector = Vector3(*frame_bone.channels[0:3]) * self.scale
                     if fix_position:
-                        self.global_offset_fix += bone_offset_vector
+                        self._global_offset_fix += bone_offset_vector
                     bone_size_vector = Vector3(0.0, 0.0, 0.0)
 
                 if bone_offset_vector.magnitude() < 0.0001:
@@ -233,7 +219,6 @@ class MainConverter:
                         continue
                     dfs(frame.frame_bones[child], child_pos + bone_size_vector, child_rot, fix_position)
 
-        useful_bones = set(BONE_MAPPER.values())
         origin = Vector3(0, -1.25, 0)
         origin_rot = Quaternion(0, 0, 0, 1)
         frame_armature = {}
@@ -268,15 +253,30 @@ class MainConverter:
         """
         # Calculates how many frames to skip since Minecraft commands run on 20Hz.
         minecraft_frames = 20
-        initial_frame_bone_name = BONE_MAPPER[root_bone_name]
+        initial_frame_bone_name = root_bone_name
 
-        original_frames = 1 / self.frame_time
+        original_frames = 1 / self._frame_time
         skip_frames = round(original_frames / minecraft_frames)
         ticks = 0
         # import all the armor stands
-        self.aec_stand_pairs[function_name] = {}
+        self._aec_stand_pairs[function_name] = {}
+
+        self._useful_bones = set()
+        stand_bone_names = set()
+
         for stand in stands:
-            self.aec_stand_pairs[function_name][stand[0]] = AecArmorStandPair(*stand[0:7])
+            self._aec_stand_pairs[function_name][stand[0]] = AecArmorStandPair(*stand[0:7])
+            stand_bone_names.add(stand[0])
+
+        def add_parents(bone_name: str) -> None:
+            if bone_name not in self._useful_bones:
+                self._useful_bones.add(bone_name)
+                parent_bone = self.bones[bone_name].parent
+                if parent_bone is not None:
+                    add_parents(parent_bone)
+
+        for stand_bone_name in stand_bone_names:
+            add_parents(stand_bone_name)
 
         try:
             os.mkdir(self.function_directory)
@@ -286,7 +286,7 @@ class MainConverter:
             os.mkdir(os.path.join(self.function_directory, function_name))
         except FileExistsError:
             pass
-        self.global_offset_fix = None
+        self._global_offset_fix = None
 
         for i in range(0, len(self.frames), skip_frames):
 
@@ -296,12 +296,12 @@ class MainConverter:
 
             commands = []
 
-            for stand_name in self.aec_stand_pairs[function_name]:
-                aec_stand_pair = self.aec_stand_pairs[function_name][stand_name]
-                global_bone = frame_armature[BONE_MAPPER[stand_name]]
+            for stand_name in self._aec_stand_pairs[function_name]:
+                aec_stand_pair = self._aec_stand_pairs[function_name][stand_name]
+                global_bone = frame_armature[stand_name]
 
                 command = aec_stand_pair.return_transformation_command(
-                    global_bone.position - self.global_offset_fix, global_bone.rotation, root_uuid)
+                    global_bone.position - self._global_offset_fix, global_bone.rotation, root_uuid)
 
                 commands.append(command)
 
@@ -315,8 +315,8 @@ class MainConverter:
 
             ticks += 1
 
-        if function_name not in self.commands_to_index or self.commands_to_index[function_name] > ticks - 1:
-            self.commands_to_index[function_name] = ticks - 1
+        if function_name not in self._commands_to_index or self._commands_to_index[function_name] > ticks - 1:
+            self._commands_to_index[function_name] = ticks - 1
 
     def reset_function(self, function_name: str) -> None:
         """Write commands to remove and summon necessary AEC-Stand pairs.
@@ -329,9 +329,9 @@ class MainConverter:
         f = open(complete_path, "a")
 
         commands = []
-        for aec_stand_pair in self.aec_stand_pairs[function_name]:
-            commands += self.aec_stand_pairs[function_name][aec_stand_pair].return_reset_commands()
-        f.write('\n'.join(commands)+'\n')
+        for aec_stand_pair in self._aec_stand_pairs[function_name]:
+            commands += self._aec_stand_pairs[function_name][aec_stand_pair].return_reset_commands()
+        f.write('\n'.join(commands) + '\n')
         f.close()
 
     def search_function(self, function_name: str) -> None:
@@ -345,7 +345,7 @@ class MainConverter:
         complete_path = os.path.join(self.function_directory, 'main' + ".mcfunction")
         f = open(complete_path, "a")
 
-        for ticks in range(self.commands_to_index[function_name]):
+        for ticks in range(self._commands_to_index[function_name]):
             # function indexing
             pre_command = 'execute if score global animation_time matches ' + str(ticks) + ' run '
             f.write(pre_command + 'function ' + utility.get_function_directory(self.function_directory,
