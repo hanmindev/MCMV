@@ -11,7 +11,7 @@ Using programs like blender, you can export animations to .bvh which can be conv
 See leo_need_roki.py for an example. There is a lot to write so it is recommended that you make a separate file to run the program.
 
 ## Python:
-1. Create a folder named 'data' in the same directory as main.py.
+1. Create a folder named 'data' in the same directory as main.py. This is where your .bvh files should be.
 2. Create an instance of a MainConverter class with a path to where the functions should be written to.  
 ```py
 converter = MainConverter('C:/Users/USER/AppData/Roaming/.minecraft/saves/WORLD_NAME/datapacks/DATAPACK_NAME/data/animate/functions/FOLDER')
