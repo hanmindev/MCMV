@@ -27,6 +27,7 @@ class MainConverter:
     # - _useful_bones: A set of all bones to be read in the program.
     # - _order: The Euler rotation order for this file.
     # - _frame_time: Seconds between frames.
+    # - _root_bone: The root bone.
 
     function_directory: str
     scale: float
@@ -40,6 +41,7 @@ class MainConverter:
     _useful_bones: set
     _order: Optional[str]
     _frame_time: Optional[float]
+    _root_bone: Optional[str]
 
     def __init__(self, function_directory: str) -> None:
         """Initialize a new MainConverter class.
@@ -58,6 +60,7 @@ class MainConverter:
         self._useful_bones = set()
         self._order = None
         self._frame_time = None
+        self._root_bone = None
 
         if 'functions' in function_directory and 'datapacks' in function_directory \
                 and 'functions' not in function_directory[-10:len(function_directory)]:
@@ -84,6 +87,7 @@ class MainConverter:
         self.scale = scale
         self._global_offset_fix = None
         self._order = order
+        self._root_bone = None
         with open(file_path, encoding='utf-8') as file:
             parent_stack = []
             mode = 0
@@ -95,6 +99,9 @@ class MainConverter:
 
                     elif words[0] == 'ROOT' or words[0] == 'JOINT' or words[0] == 'End':
                         bone_name = words[1]
+                        if words[0] == 'ROOT':
+                            self._root_bone = bone_name
+
                         self.bones[bone_name] = Bone(bone_name)
                         if len(parent_stack) > 0:
                             self.bones[bone_name].parent = parent_stack[-1]
@@ -149,7 +156,7 @@ class MainConverter:
             function_name: Name of the Minecraft function (e.g. could be name of the character, armature_001, etc)
             frame: A single Frame object used to create the armature.
             initial_frame_bone_name: Name of the root bone (e.g. Root, PositionOffset, etc.)
-            Should be dependent on the .bvh file, and should be a value of BONE_MAPPER
+            Should be dependent on the .bvh file.
         """
         armorstand_bone_set = set(self._aec_stand_pairs[function_name].keys())
         global positioned
@@ -228,7 +235,7 @@ class MainConverter:
 
         return frame_armature
 
-    def globalize_armature(self, function_name: str, root_bone_name: str, root_uuid: str,
+    def globalize_armature(self, function_name: str, root_uuid: str,
                            stands: list[tuple[str, str, str,
                                               Optional[Vector3],
                                               Optional[Vector3],
@@ -237,11 +244,10 @@ class MainConverter:
         """Loads a .bvh file.
 
             function_name: Name of the Minecraft function (e.g. could be name of the character, armature_001, etc)
-            root_bone_name: Name of the root bone (e.g. 'main'). Should be a key in BONE_MAPPER
             root_uuid: UUID of the root entity that the armature is positioned at.
             (e.g. 54e5e739-9221-45fc-a06f-b5326d174cf7)
             stands: A list of tuples containing information for an AEC-ArmorStand Pair:
-                Name of the bone (should be a key in BONE_MAPPER)
+                Name of the bone (Should be the same name used in the .bvh file.)
                 UUID of the AEC (e.g. 2f9d6e9a-aaca-4964-9059-ec43f2016499)
                 UUID of the Armor Stand (e.g. 19c4830d-8714-4e62-b041-0cde12b6de96)
                 The size of the bone as a Vector3 object
@@ -253,7 +259,7 @@ class MainConverter:
         """
         # Calculates how many frames to skip since Minecraft commands run on 20Hz.
         minecraft_frames = 20
-        initial_frame_bone_name = root_bone_name
+        initial_frame_bone_name = self._root_bone
 
         original_frames = 1 / self._frame_time
         skip_frames = round(original_frames / minecraft_frames)
