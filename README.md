@@ -8,7 +8,7 @@ This program lets you import armature animations into Minecraft by converting .b
 Using programs like blender, you can export animations to .bvh which can be converted by this program into .mcfunction.
 
 # Usage
-See leo_need_roki.py for an example. There is a lot to write so it is recommended that you make a separate file to run the program.
+See example.py for an example. There is a lot to write so it is recommended that you make a separate file to run the program.
 
 ## Python:
 1. Create a folder named 'data' in the same directory as main.py. This is where your .bvh files should be.
