@@ -1,3 +1,4 @@
+import sys
 from typing import Optional
 
 
@@ -34,4 +35,4 @@ def get_function_directory(directory: str, file: Optional[str]) -> str:
                 datapack_directory.append('')
                 return datapack_name + ':' + '/'.join(datapack_directory) + file
     print('This doesn\'t seem to be a valid path!')
-    quit()
+    sys.exit()

@@ -1,5 +1,6 @@
 import os
 import shutil
+import sys
 from typing import Optional
 
 import utility
@@ -72,7 +73,7 @@ class MainConverter:
             print('Directory name does not include \'functions\' or \'datapacks\' '
                   'or does not contain a folder following \'functions\' folder!'
                   ' Are you sure this is the right directory?')
-            quit()
+            sys.exit()
 
     def load_file(self, file_path: str, scale: float, order: str = 'xyz') -> None:
         """Loads a .bvh file.
