@@ -12,7 +12,7 @@ See example.py for an example. There is a lot to write so it is recommended that
 
 ## Python:
 1. Create a folder named 'data' in the same directory as main.py. This is where your .bvh files should be.
-2. Create an instance of a MainConverter class with a path to where the functions should be written to.  
+2. Create an instance of a MainConverter class with a path to where the functions should be written to. WARNING: THIS WILL DELETE THE FOLDER AND ALL IT'S CONTENTS  
 ```py
 converter = MainConverter('C:/Users/USER/AppData/Roaming/.minecraft/saves/WORLD_NAME/datapacks/DATAPACK_NAME/data/animate/functions/FOLDER')
 ```  
