@@ -80,5 +80,5 @@ Running this function in Minecraft will display a single frame, with the frame n
 e.g. In a loop:
 ```
 scoreboard players add global animation_time 1
-function animate:FOLDER/reset
+function animate:FOLDER/main
 ```
