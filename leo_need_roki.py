@@ -6,7 +6,7 @@ if __name__ == '__main__':
                               'Sekai/datapacks/prsk/data/animate/functions/armor_stand')
     converter.load_file('data/ichika.bvh', 2.0)
     # size, offset, t-pose
-    converter.globalize_armature('ichika', 'PositionOffset', '54e5e739-9221-45fc-a06f-b5326d174cf7',
+    converter.globalize_armature('ichika', '54e5e739-9221-45fc-a06f-b5326d174cf7',
                                  [('Neck',
                                    '2f9d6e9a-aaca-4964-9059-ec43f2016499',
                                    '19c4830d-8714-4e62-b041-0cde12b6de96',
@@ -90,7 +90,7 @@ if __name__ == '__main__':
                                   ]
                                  )
     converter.load_file('data/shiho.bvh', 2.0)
-    converter.globalize_armature('shiho', 'PositionOffset', '3888fe0d-41b5-46ad-9740-797228c6c3c3',
+    converter.globalize_armature('shiho', '3888fe0d-41b5-46ad-9740-797228c6c3c3',
                                  [('Neck',
                                    '2f9d6e9a-aaca-1234-9059-ec43f2016499',
                                    '19c4830d-8714-1234-b041-0cde12b6de96',
@@ -174,7 +174,7 @@ if __name__ == '__main__':
                                   ]
                                  )
     converter.load_file('data/honami.bvh', 2.0)
-    converter.globalize_armature('honami', 'PositionOffset', 'b5f2ae0c-ee4a-49c1-a16a-335883c5eb2f',
+    converter.globalize_armature('honami', 'b5f2ae0c-ee4a-49c1-a16a-335883c5eb2f',
                                  [('Neck',
                                    '2f9d6e9a-aaca-3456-9059-ec43f2016499',
                                    '19c4830d-8714-3456-b041-0cde12b6de96',
@@ -274,7 +274,7 @@ if __name__ == '__main__':
                                   ]
                                  )
     converter.load_file('data/saki.bvh', 2.0)
-    converter.globalize_armature('saki', 'PositionOffset', 'f3560c07-b59e-40ac-a4f6-4e5b868c5839',
+    converter.globalize_armature('saki', 'f3560c07-b59e-40ac-a4f6-4e5b868c5839',
                                  [('Neck',
                                    '2f9d6e9a-aaca-4567-9059-ec43f2016499',
                                    '19c4830d-8714-4567-b041-0cde12b6de96',
@@ -358,7 +358,7 @@ if __name__ == '__main__':
                                   ]
                                  )
     converter.load_file('data/miku.bvh', 2.0)
-    converter.globalize_armature('miku', 'PositionOffset', '58eee451-d736-4207-affc-e730d75872fe',
+    converter.globalize_armature('miku', '58eee451-d736-4207-affc-e730d75872fe',
                                  [('Neck',
                                    '2f9d6e9a-7654-4567-9059-ec43f2016499',
                                    '19c4830d-7654-4567-b041-0cde12b6de96',
@@ -457,7 +457,7 @@ if __name__ == '__main__':
                               'Sekai/datapacks/prsk/data/animate/functions/guitar')
     converter.load_file('data/shiho_guitar.bvh', 0.0)
     # size, offset, t-pose
-    converter.globalize_armature('shiho_guitar', 'PositionOffset', '41451f74-0acb-1234-a42f-cc90a4a04c9b',
+    converter.globalize_armature('shiho_guitar', '41451f74-0acb-1234-a42f-cc90a4a04c9b',
                                  [('Guitar',
                                    '2f9d6e9a-7428-4964-9059-ec43f2016499',
                                    '19c4830d-2954-4e62-b041-0cde12b6de96',
@@ -471,7 +471,7 @@ if __name__ == '__main__':
 
     converter.load_file('data/ichika_guitar.bvh', 0.0)
     # size, offset, t-pose
-    converter.globalize_armature('ichika_guitar', 'PositionOffset', '41451f74-0acb-4406-a42f-cc90a4a04c9b',
+    converter.globalize_armature('ichika_guitar', '41451f74-0acb-4406-a42f-cc90a4a04c9b',
                                  [('Guitar',
                                    '2f9d6e9a-7428-4964-2347-ec43f2016499',
                                    '19c4830d-2954-4e62-2463-0cde12b6de96',
@@ -485,7 +485,7 @@ if __name__ == '__main__':
 
     converter.load_file('data/miku_guitar.bvh', 0.0)
     # size, offset, t-pose
-    converter.globalize_armature('miku_guitar', 'PositionOffset', '41451f74-7654-4567-a42f-cc90a4a04c9b',
+    converter.globalize_armature('miku_guitar', '41451f74-7654-4567-a42f-cc90a4a04c9b',
                                  [('Guitar',
                                    '2f9d6e9a-7428-7424-2347-ec43f2016499',
                                    '19c4830d-2954-8543-2463-0cde12b6de96',
