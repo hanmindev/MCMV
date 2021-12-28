@@ -173,11 +173,8 @@ if __name__ == '__main__':
                                    )
                                   ]
                                  )
-    converter.reset_function('CHARACTER_1')
-    converter.reset_function('CHARACTER_2')
-
-    converter.search_function('CHARACTER_1')
-    converter.search_function('CHARACTER_2')
+    converter.reset_function()
+    converter.search_function()
 
     converter = MainConverter('C:/Users/USER/AppData/Roaming/.minecraft/saves/WORLD_NAME'
                               '/datapacks/DATAPACK_NAME/data/animate/functions/FOLDER_NAME2')
@@ -206,8 +203,6 @@ if __name__ == '__main__':
                                    )
                                   ]
                                  )
-    converter.reset_function('CHARACTER_1_GUITAR')
-    converter.reset_function('CHARACTER_2_GUITAR')
+    converter.reset_function()
 
-    converter.search_function('CHARACTER_1_GUITAR')
-    converter.search_function('CHARACTER_2_GUITAR')
+    converter.search_function()
