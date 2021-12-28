@@ -340,12 +340,8 @@ class MainConverter:
 
     def search_function(self) -> None:
         """Write commands to index the correct .mcfunction file to run the animation.
-        Currently the search used is linear. Could be drastically improved by using a
-        binary search but currently it runs fine on my machine so it'll be something
-        I'll do in the future.
+        Search is O(log2(N)) with N being the number of frames.
         """
-        complete_path = os.path.join(self.function_directory, 'main' + ".mcfunction")
-        f = open(complete_path, "a")
         max_ticks = max(self._commands_to_index.values())
 
         try:
@@ -354,17 +350,33 @@ class MainConverter:
             pass
 
         for ticks in range(max_ticks):
-
-            # function indexing
-            pre_command = 'execute if score global animation_time matches ' + str(ticks) + ' run '
-            f.write(pre_command + 'function ' + utility.get_function_directory(
-                self.function_directory, 'search') + '/' + str(ticks) + '\n')
-
             search_path = os.path.join(self.function_directory, 'search', str(ticks) + ".mcfunction")
             g = open(search_path, "a")
             for function_name in self._commands_to_index:
                 g.write('function ' + utility.get_function_directory(
                     self.function_directory, function_name) + '/' + str(ticks) + '\n')
             g.close()
+
+        def construct_binary_tree(left: int, right: int, os_directory: str, function_directory: str, id: int) -> str:
+            if right == left:
+                pre_command = 'execute if score global animation_time matches ' + str(right) + ' run '
+                return pre_command + 'function ' + function_directory + '/' + str(right) + '\n'
+            else:
+                complete_path = os.path.join(os_directory, 'b' + str(id) + ".mcfunction")
+                f = open(complete_path, "a")
+
+                middle = left + (right - left) // 2
+                f.write(construct_binary_tree(left, middle, os_directory, function_directory, id * 2))
+                f.write(construct_binary_tree(middle + 1, right, os_directory, function_directory, id * 2 + 1))
+
+                pre_command = 'execute if score global animation_time matches ' + str(left) + '..' + str(
+                    right) + ' run '
+                return pre_command + 'function ' + function_directory + '/b' + str(id) + '\n'
+
+        complete_path = os.path.join(self.function_directory, 'main' + ".mcfunction")
+        f = open(complete_path, "a")
+        f.write(construct_binary_tree(
+            0, max_ticks, os.path.join(self.function_directory, 'search'), utility.get_function_directory(
+                self.function_directory, 'search'), 1))
 
         f.close()
