@@ -325,36 +325,46 @@ class MainConverter:
         if function_name not in self._commands_to_index or self._commands_to_index[function_name] > ticks - 1:
             self._commands_to_index[function_name] = ticks - 1
 
-    def reset_function(self, function_name: str) -> None:
+    def reset_function(self) -> None:
         """Write commands to remove and summon necessary AEC-Stand pairs.
-        This will not overwrite the function so reset_function can be called with different
-        function_names.
-
-            function_name: name of the function group (e.g. armature_001)
         """
         complete_path = os.path.join(self.function_directory, 'reset' + ".mcfunction")
         f = open(complete_path, "a")
 
         commands = []
-        for aec_stand_pair in self._aec_stand_pairs[function_name]:
-            commands += self._aec_stand_pairs[function_name][aec_stand_pair].return_reset_commands()
-        f.write('\n'.join(commands) + '\n')
+        for function_name in self._aec_stand_pairs:
+            for aec_stand_pair in self._aec_stand_pairs[function_name]:
+                commands += self._aec_stand_pairs[function_name][aec_stand_pair].return_reset_commands()
+            f.write('\n'.join(commands) + '\n')
         f.close()
 
-    def search_function(self, function_name: str) -> None:
+    def search_function(self) -> None:
         """Write commands to index the correct .mcfunction file to run the animation.
         Currently the search used is linear. Could be drastically improved by using a
         binary search but currently it runs fine on my machine so it'll be something
         I'll do in the future.
-
-            function_name: name of the function group (e.g. armature_001)
         """
         complete_path = os.path.join(self.function_directory, 'main' + ".mcfunction")
         f = open(complete_path, "a")
+        max_ticks = max(self._commands_to_index.values())
 
-        for ticks in range(self._commands_to_index[function_name]):
+        try:
+            os.mkdir(os.path.join(self.function_directory, 'search'))
+        except FileExistsError:
+            pass
+
+        for ticks in range(max_ticks):
+
             # function indexing
             pre_command = 'execute if score global animation_time matches ' + str(ticks) + ' run '
-            f.write(pre_command + 'function ' + utility.get_function_directory(self.function_directory,
-                                                                               function_name) + '/' + str(ticks) + '\n')
+            f.write(pre_command + 'function ' + utility.get_function_directory(
+                self.function_directory, 'search') + '/' + str(ticks) + '\n')
+
+            search_path = os.path.join(self.function_directory, 'search', str(ticks) + ".mcfunction")
+            g = open(search_path, "a")
+            for function_name in self._commands_to_index:
+                g.write('function ' + utility.get_function_directory(
+                    self.function_directory, function_name) + '/' + str(ticks) + '\n')
+            g.close()
+
         f.close()
