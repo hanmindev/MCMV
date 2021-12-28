@@ -56,13 +56,13 @@ Each bone is represented as a tuple. The items in the tuple are, in order:
 * Initial-Pose vector: Define the T-pose direction of the bone. Check which direction the bone is facing while poseless in the .bvh model. e.g. A model doing a T-pose may have the left-arm pointing in the x-direction. Then, the vector would be (1.0, 0.0, 0.0). Magnitude does not matter.  
 
 5. Repeat steps 3 and 4 if you have more armatures to export to the same folder.
-6. Generate a reset function for each of the armatures.
+6. Generate a reset function for the armatures.
 ```py
-converter.reset_function('character_1')
+converter.reset_function()
 ```
-7. Generate a search function for each of the armatures.
+7. Generate a search function for the armatures.
 ```py
-converter.search_function('character_1')
+converter.search_function()
 ```
 
 ## Minecraft
