@@ -3,6 +3,8 @@
 
 Example video of it in action: https://www.youtube.com/watch?v=L2yVFUgoeBY
 
+Quick setup for beginners tutorial: https://www.youtube.com/watch?v=uLdCslxuUDs
+
 This program lets you import armature animations into Minecraft by converting .bvh files into .mcfunction.
 
 Using programs like blender, you can export animations to .bvh which can be converted by this program into .mcfunction.
