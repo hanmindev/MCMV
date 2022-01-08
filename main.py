@@ -163,9 +163,22 @@ class MainConverter:
 
                             channels = tuple(map(float, words[index_start:index_end]))
 
+                            channel_mapper = {bone.channel_names[i]: channels[i] for i in range(bone.channel_count)}
+
+                            x_pos = channel_mapper['Xposition']
+                            y_pos = channel_mapper['Yposition']
+                            z_pos = channel_mapper['Zposition']
+
+                            x_rot = channel_mapper['Xrotation']
+                            y_rot = channel_mapper['Yrotation']
+                            z_rot = channel_mapper['Zrotation']
+
                             index_start = index_end
 
-                            self.frames[-1].frame_bones[bone.bone_name] = FrameBone(bone.bone_name, channels)
+                            position = Vector3(x_pos, y_pos, z_pos)
+                            rotation = Euler(self._order, x_rot, y_rot, z_rot)
+
+                            self.frames[-1].frame_bones[bone.bone_name] = FrameBone(bone.bone_name, position, rotation)
 
     def globalize_frame_armature(self, function_name: str, frame: Frame, initial_frame_bone_name: str) -> \
             dict[str, GlobalBone]:
@@ -191,7 +204,7 @@ class MainConverter:
                 return None
 
             # Fix the new rotation
-            child_rot = Quaternion().set_from_euler(Euler(self._order, *frame_bone.channels[3:6]))
+            child_rot = Quaternion().set_from_euler(frame_bone.rotation)
             child_rot.parent(parent_rot)
 
             if positioned and frame_bone.bone_name not in armorstand_bone_set:
@@ -219,7 +232,7 @@ class MainConverter:
                     bone_size_vector.rotate_by_quaternion(q)
                 else:
                     # Rotate the bone by the parent
-                    bone_offset_vector = Vector3(*frame_bone.channels[0:3]) * self.scale
+                    bone_offset_vector = frame_bone.position * self.scale
                     if fix_position:
                         self._global_offset_fix += bone_offset_vector
                     bone_size_vector = Vector3(0.0, 0.0, 0.0)
@@ -364,14 +377,14 @@ class MainConverter:
             #     return None
 
             # Rotate the bone by the parent
-            bone_vector = Vector3(*frame_bone.channels[0:3])
+            bone_vector = frame_bone.position.copy()
             if bone_vector.magnitude() != 0.0:
                 bone_vector.rotate_by_quaternion(parent_rot)
             else:
                 bone_vector = Vector3(0.0, 0.0, 0.0)
 
             # Fix the new rotation
-            child_rot = Quaternion().set_from_euler(Euler(self._order, *frame_bone.channels[3:6]))
+            child_rot = Quaternion().set_from_euler(frame_bone.rotation)
             child_rot.parent(parent_rot)
 
             child_pos = parent_pos + bone_vector

@@ -40,12 +40,12 @@ class FrameBone:
       - channels: The values of the items in channels as described by the .bvh file.
     """
 
-    def __init__(self, bone_name: str, channels: tuple[float]) -> None:
+    def __init__(self, bone_name: str, position, rotation) -> None:
         self.bone_name = bone_name
-        self.channels = channels
+        self.position = position
+        self.rotation = rotation
 
     bone_name: str  # the bone that FrameBone is based on.
-    channels: tuple[float]
 
 
 class GlobalBone:
