@@ -325,7 +325,7 @@ class MainConverter:
                 if stand != 'Site':
                     self._aec_stand_pairs[function_name][stand] = AecArmorStandPair(utility.get_function_directory(
                         self.function_directory, function_name), stand, 'end_rod',
-                        Vector3(0.0, math.sqrt(2), math.sqrt(2)) * self.bones[stand].offset.magnitude() * self.scale,
+                        Vector3(0.0, math.sqrt(2)/2, math.sqrt(2)/2) * self.bones[stand].offset.magnitude() * self.scale,
                         self.bones[stand].size * self.scale,
                         self.bones[stand].offset, show_names)
                     stand_bone_names.add(stand)

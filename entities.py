@@ -25,6 +25,7 @@ class Bone:
         self.offset = Vector3(0.0, 0.0, 0.0)
         self.parent = None
         self.children = set()
+        self.size = Vector3(0.0,0.0,0.0)
 
     bone_name: str
     channel_count: int
