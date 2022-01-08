@@ -75,7 +75,7 @@ class MainConverter:
                   ' Are you sure this is the right directory?')
             sys.exit()
 
-    def load_file(self, file_path: str, scale: float, order: str = 'xyz') -> None:
+    def load_file(self, file_path: str, scale: float, order: str = 'xyz', up: str = 'y') -> None:
         """Loads a .bvh file.
 
             file_path: A string of the location of the .bvh file (relative).
@@ -99,7 +99,7 @@ class MainConverter:
                         continue
 
                     elif words[0] == 'ROOT' or words[0] == 'JOINT' or words[0] == 'End':
-                        bone_name = words[1]
+                        bone_name = ' '.join(words[1:len(words)])
                         if words[0] == 'ROOT':
                             self._root_bone = bone_name
 
@@ -338,7 +338,102 @@ class MainConverter:
             f.write('\n'.join(commands) + '\n')
         f.close()
 
-    def search_function(self) -> None:
+    def debug_armature_construction(self, frame: Frame, position: Vector3):
+        commands = ['kill @e[type=falling_block,tag=armature_sand]']
+
+        def dfs(frame_bone, parent_pos, parent_rot) -> None:
+            # skip extra bones
+            # if frame_bone.bone_name not in useful_bones:
+            #     return None
+
+            # Rotate the bone by the parent
+            bone_vector = Vector3(*frame_bone.channels[0:3])
+            if bone_vector.magnitude() != 0.0:
+                bone_vector.rotate_by_quaternion(parent_rot)
+            else:
+                bone_vector = Vector3(0.0, 0.0, 0.0)
+
+            # Fix the new rotation
+            child_rot = Quaternion().set_from_euler(Euler('xyz', *frame_bone.channels[3:6]))
+            child_rot.parent(parent_rot)
+
+            child_pos = parent_pos + bone_vector
+
+            # display
+            if frame_bone.bone_name not in {'Hip', 'PositionOffset'}:
+                inbetweens = (bone_vector.magnitude() * self.scale)
+                if inbetweens > 1.0:
+
+                    vector_step = bone_vector.normalized() * 10
+
+                    # in between stone
+                    for i in range(int(bone_vector.magnitude() / 10)):
+                        xyz = ('{:f}'.format(j * self.scale) for j in position * (1 / self.scale) + parent_pos + vector_step * (i + 0.5))
+
+                        commands.append(
+                            'summon minecraft:falling_block ' + ' '.join(xyz) +
+                            ' {Tags:[\'armature_sand\'],NoGravity:true,BlockState:{Name:"minecraft:stone"}}')
+
+                xyz = ('{:f}'.format(i * self.scale) for i in position * (1 / self.scale) + child_pos)
+
+                # node
+                commands.append(
+                    'summon minecraft:falling_block ' + ' '.join(xyz) +
+                    ' {Tags:[\'armature_sand\'],NoGravity:true,BlockState:{Name:"minecraft:diamond_block"},'
+                    'CustomNameVisible: 1b, CustomName: \'{"text": "' + frame_bone.bone_name + '"}\'' + '}')
+
+            # recursion
+            bone = self.bones[frame_bone.bone_name]
+            children = bone.children
+
+            for child in children:
+                if child == 'Site':
+                    continue
+                dfs(frame.frame_bones[child], child_pos, child_rot)
+
+        initial_frame_bone = frame.frame_bones[self._root_bone]
+        origin = Vector3(0, 1, 0)
+        origin_rot = Quaternion(0, 0, 0, 1)
+        dfs(initial_frame_bone, origin, origin_rot)
+        return commands
+
+    def create_debug_armature(self, function_name: str, position: Vector3) -> None:
+        # Calculates how many frames to skip since Minecraft commands run on 20Hz.
+        minecraft_frames = 20
+        initial_frame_bone_name = self._root_bone
+
+        original_frames = 1 / self._frame_time
+        skip_frames = round(original_frames / minecraft_frames)
+        ticks = 0
+
+        try:
+            os.mkdir(self.function_directory)
+        except FileExistsError:
+            pass
+        try:
+            os.mkdir(os.path.join(self.function_directory, function_name))
+        except FileExistsError:
+            pass
+        self._global_offset_fix = None
+
+        for i in range(0, len(self.frames), skip_frames):
+            frame = self.frames[i]
+
+            # per function
+
+            complete_path = os.path.join(self.function_directory, function_name, str(ticks) + ".mcfunction")
+            open(complete_path, 'w').close()
+            g = open(complete_path, "a")
+
+            for command in self.debug_armature_construction(frame, position):
+                g.write(command + "\n")
+
+            ticks += 1
+
+        if function_name not in self._commands_to_index or self._commands_to_index[function_name] > ticks - 1:
+            self._commands_to_index[function_name] = ticks - 1
+
+    def search_function(self, selector_objective: str = 'global animation_time') -> None:
         """Write commands to index the correct .mcfunction file to run the animation.
         Search is O(log2(N)) with N being the number of frames.
         """
@@ -359,7 +454,7 @@ class MainConverter:
 
         def construct_binary_tree(left: int, right: int, os_directory: str, function_directory: str, id: int) -> str:
             if right == left:
-                pre_command = 'execute if score global animation_time matches ' + str(right) + ' run '
+                pre_command = 'execute if score ' + selector_objective + ' matches ' + str(right) + ' run '
                 return pre_command + 'function ' + function_directory + '/' + str(right) + '\n'
             else:
                 complete_path = os.path.join(os_directory, 'b' + str(id) + ".mcfunction")
@@ -369,7 +464,7 @@ class MainConverter:
                 f.write(construct_binary_tree(left, middle, os_directory, function_directory, id * 2))
                 f.write(construct_binary_tree(middle + 1, right, os_directory, function_directory, id * 2 + 1))
 
-                pre_command = 'execute if score global animation_time matches ' + str(left) + '..' + str(
+                pre_command = 'execute if score ' + selector_objective + ' matches ' + str(left) + '..' + str(
                     right) + ' run '
                 return pre_command + 'function ' + function_directory + '/b' + str(id) + '\n'
 
