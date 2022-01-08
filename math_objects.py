@@ -431,6 +431,8 @@ class Vector3:
             quaternion: A Quaternion object.
         """
         length = self.magnitude()
+        if length == 0.0:
+            return Vector3(0.0, 0.0, 0.0)
         self_copy = self.normalized()
 
         a = quaternion.w

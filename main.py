@@ -134,7 +134,10 @@ class MainConverter:
 
                     elif words[0] == 'OFFSET':
                         offset = list(map(float, words[1: 4]))
-                        self.bones[parent_stack[-1]].offset = offset
+                        try:
+                            self.bones[parent_stack[-2]].offset = Vector3(*offset)
+                        except IndexError:
+                            pass
 
                     elif words[0] == 'CHANNELS':
                         count = int(words[1])
@@ -176,11 +179,9 @@ class MainConverter:
                             index_start = index_end
 
                             position = Vector3(x_pos, y_pos, z_pos)
-                            rotation = Euler(self._order, x_rot, y_rot, z_rot)
-                            rotation_quaternion = Quaternion().set_from_euler(rotation)
+                            rotation = Quaternion().set_from_euler(Euler(self._order, x_rot, y_rot, z_rot))
 
-                            self.frames[-1].frame_bones[bone.bone_name] = FrameBone(bone.bone_name, position,
-                                                                                    rotation_quaternion)
+                            self.frames[-1].frame_bones[bone.bone_name] = FrameBone(bone.bone_name, position, rotation)
 
     def globalize_frame_armature(self, function_name: str, frame: Frame, initial_frame_bone_name: str) -> \
             dict[str, GlobalBone]:
@@ -199,7 +200,7 @@ class MainConverter:
             self._global_offset_fix = Vector3(0.0, 0.0, 0.0)
             fix_position = True
 
-        def dfs(frame_bone, parent_pos, parent_rot, fix_position) -> None:
+        def dfs(frame_bone: FrameBone, parent_pos: Vector3, parent_rot: Quaternion, fix_position: bool) -> None:
             global positioned
             # skip extra bones
             if frame_bone.bone_name not in self._useful_bones:
@@ -269,11 +270,10 @@ class MainConverter:
         return frame_armature
 
     def globalize_armature(self, function_name: str, root_uuid: str,
-                           stands: list[tuple[str, str, str,
-                                              Optional[Vector3],
-                                              Optional[Vector3],
-                                              Optional[Vector3],
-                                              str]]) -> None:
+                           stands: Optional[list[tuple[str, str, str,
+                                                       Optional[Vector3],
+                                                       Optional[Vector3],
+                                                       str]]]) -> None:
         """Loads a .bvh file.
 
             function_name: Name of the Minecraft function (e.g. could be name of the character, armature_001, etc)
@@ -285,9 +285,6 @@ class MainConverter:
                 UUID of the Armor Stand (e.g. 19c4830d-8714-4e62-b041-0cde12b6de96)
                 The size of the bone as a Vector3 object
                 The offset of the bone as a Vector3 object
-                The initial direction of the bone as a Vector3 object (The vector that the bone would
-                    be pointing towards as default (e.g. if your .bvh model initially is doing a T-Pose,
-                    the right arm would have the vector (-1.0, 0.0, 0.0).)
                 A string representation of the Minecraft item to be displayed. (e.g. diamond_hoe{CustomModelData:100}
         """
         # Calculates how many frames to skip since Minecraft commands run on 20Hz.
@@ -304,7 +301,7 @@ class MainConverter:
         stand_bone_names = set()
 
         for stand in stands:
-            self._aec_stand_pairs[function_name][stand[0]] = AecArmorStandPair(*stand[0:7])
+            self._aec_stand_pairs[function_name][stand[0]] = AecArmorStandPair(stand[0], stand[1], stand[2], stand[3], stand[4], stand[5], self.bones[stand[0]].offset)
             stand_bone_names.add(stand[0])
 
         def add_parents(bone_name: str) -> None:
@@ -339,8 +336,8 @@ class MainConverter:
                 aec_stand_pair = self._aec_stand_pairs[function_name][stand_name]
                 global_bone = frame_armature[stand_name]
 
-                command = aec_stand_pair.return_transformation_command(
-                    global_bone.position - self._global_offset_fix, global_bone.rotation, root_uuid)
+                command = aec_stand_pair.return_transformation_command(global_bone.position - self._global_offset_fix, global_bone.rotation, root_uuid,
+                    self._fix_orientation)
 
                 commands.append(command)
 
@@ -370,10 +367,10 @@ class MainConverter:
             f.write('\n'.join(commands) + '\n')
         f.close()
 
-    def debug_armature_construction(self, frame: Frame, position: Vector3):
-        commands = ['kill @e[type=falling_block,tag=armature_sand]']
+    def debug_armature_construction(self, frame: Frame, position: Vector3, function_name: str):
+        commands = ['kill @e[type=falling_block,tag=armature_sand'+function_name+']']
 
-        def dfs(frame_bone, parent_pos, parent_rot) -> None:
+        def dfs(frame_bone: FrameBone, parent_pos: Vector3, parent_rot: Quaternion) -> None:
             # skip extra bones
             # if frame_bone.bone_name not in useful_bones:
             #     return None
@@ -393,28 +390,37 @@ class MainConverter:
 
             # display
             if frame_bone.bone_name not in {'Hip', 'PositionOffset'}:
-                real_length = (bone_vector.magnitude() * self.scale)
+                real_length = (bone_vector.magnitude() * (self.scale / 10))
                 if real_length > 1.0:
 
-                    vector_step = bone_vector.normalized() * 10
+                    vector_step = bone_vector.normalized()
 
                     # in between stone
-                    for i in range(int(bone_vector.magnitude() / 10)):
-                        xyz = ('{:f}'.format(j) for j in position + (
-                                (parent_pos + vector_step * (i + 0.5)) * self.scale
-                        ).rotated_by_quaternion(self._fix_orientation))
+                    for i in range(int(real_length)):
+                        resulting_position = parent_pos * (self.scale / 10) + vector_step * (i + 0.5)
+
+                        resulting_position.rotate_by_quaternion(self._fix_orientation)
+
+                        resulting_position += position
+
+                        xyz = ('{:f}'.format(j) for j in resulting_position)
 
                         commands.append(
                             'summon minecraft:falling_block ' + ' '.join(xyz) +
-                            ' {Tags:[\'armature_sand\'],NoGravity:true,BlockState:{Name:"minecraft:stone"}}')
+                            ' {Tags:[\'armature_sand'+function_name+'\'],NoGravity:true,BlockState:{Name:"minecraft:stone"}}')
 
-                xyz = ('{:f}'.format(i) for i in
-                       position + (child_pos * self.scale).rotated_by_quaternion(self._fix_orientation))
+                resulting_position = child_pos * (self.scale / 10)
+
+                resulting_position.rotate_by_quaternion(self._fix_orientation)
+
+                resulting_position += position
+
+                xyz = ('{:f}'.format(i) for i in resulting_position)
 
                 # node
                 commands.append(
                     'summon minecraft:falling_block ' + ' '.join(xyz) +
-                    ' {Tags:[\'armature_sand\'],NoGravity:true,BlockState:{Name:"minecraft:diamond_block"},'
+                    ' {Tags:[\'armature_sand'+function_name+'\'],NoGravity:true,BlockState:{Name:"minecraft:diamond_block"},'
                     'CustomNameVisible: 1b, CustomName: \'{"text": "' + frame_bone.bone_name + '"}\'' + '}')
 
             # recursion
@@ -460,7 +466,7 @@ class MainConverter:
             open(complete_path, 'w').close()
             g = open(complete_path, "a")
 
-            for command in self.debug_armature_construction(frame, position):
+            for command in self.debug_armature_construction(frame, position, function_name):
                 g.write(command + "\n")
 
             ticks += 1

@@ -20,14 +20,14 @@ class Bone:
         self.bone_name = bone_name
         self.channel_count = 0
         self.channel_names = []
-        self.offset = (0.0, 0.0, 0.0)
+        self.offset = Vector3(0.0, 0.0, 0.0)
         self.parent = None
         self.children = set()
 
     bone_name: str
     channel_count: int
     channel_names = list[str]
-    offset: tuple[float, float, float]
+    offset: Vector3
     parent: Optional[str]
     children: set[str]
 
@@ -109,8 +109,8 @@ class AecArmorStandPair:
     item: str
     _update: bool
 
-    def __init__(self, name: str, aec_uuid: str, stand_uuid: str, size: Vector3, offset: Vector3, t_pose: Vector3,
-                 item: str) -> None:
+    def __init__(self, name: str, aec_uuid: str, stand_uuid: str, size: Vector3, offset: Vector3,
+                 item: str, t_pose: Vector3) -> None:
         self.name = name
         self.aec_uuid = aec_uuid
         self.stand_uuid = stand_uuid
@@ -134,7 +134,7 @@ class AecArmorStandPair:
                     'item replace entity ' + self.stand_uuid + ' armor.head with ' + self.item]
         return commands
 
-    def return_transformation_command(self, position: Vector3, rotation: Quaternion, root_uuid: str) -> str:
+    def return_transformation_command(self, position: Vector3, rotation: Quaternion, root_uuid: str, fix_orientation: Quaternion) -> str:
         """Return commands as a single string that translate and rotate the AEC-ArmorStand pair
         to the specified position and rotation.
 
@@ -144,6 +144,8 @@ class AecArmorStandPair:
         """
         q = Quaternion().between_vectors(self.size, self.t_pose)
         q.parent(rotation)
+
+
 
         commands = 'execute at ' + root_uuid + ' run tp ' + self.aec_uuid + ' ~' + ' ~'.join(
             ('{:f}'.format(i) for i in position.to_tuple())) + '\n'
