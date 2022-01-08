@@ -37,15 +37,18 @@ class FrameBone:
 
     Instance Attributes:
       - bone_name: The name of the bone that FrameBone is based on.
-      - channels: The values of the items in channels as described by the .bvh file.
+      - position: The position of the bone from the channels as described by the .bvh file.
+      - rotation: The rotation of the bone from the channels as described by the .bvh file.
     """
 
-    def __init__(self, bone_name: str, position, rotation) -> None:
+    def __init__(self, bone_name: str, position: Vector3, rotation: Quaternion) -> None:
         self.bone_name = bone_name
         self.position = position
         self.rotation = rotation
 
     bone_name: str  # the bone that FrameBone is based on.
+    position: Vector3
+    rotation: Quaternion
 
 
 class GlobalBone:

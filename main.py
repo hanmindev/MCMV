@@ -177,8 +177,10 @@ class MainConverter:
 
                             position = Vector3(x_pos, y_pos, z_pos)
                             rotation = Euler(self._order, x_rot, y_rot, z_rot)
+                            rotation_quaternion = Quaternion().set_from_euler(rotation)
 
-                            self.frames[-1].frame_bones[bone.bone_name] = FrameBone(bone.bone_name, position, rotation)
+                            self.frames[-1].frame_bones[bone.bone_name] = FrameBone(bone.bone_name, position,
+                                                                                    rotation_quaternion)
 
     def globalize_frame_armature(self, function_name: str, frame: Frame, initial_frame_bone_name: str) -> \
             dict[str, GlobalBone]:
@@ -204,7 +206,7 @@ class MainConverter:
                 return None
 
             # Fix the new rotation
-            child_rot = Quaternion().set_from_euler(frame_bone.rotation)
+            child_rot = frame_bone.rotation.copy()
             child_rot.parent(parent_rot)
 
             if positioned and frame_bone.bone_name not in armorstand_bone_set:
@@ -384,7 +386,7 @@ class MainConverter:
                 bone_vector = Vector3(0.0, 0.0, 0.0)
 
             # Fix the new rotation
-            child_rot = Quaternion().set_from_euler(frame_bone.rotation)
+            child_rot = frame_bone.rotation.copy()
             child_rot.parent(parent_rot)
 
             child_pos = parent_pos + bone_vector
