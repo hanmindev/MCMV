@@ -426,6 +426,42 @@ class Vector3:
         self.j *= length
         self.k *= length
 
+    def rotated_by_quaternion(self, quaternion: Quaternion):
+        """Return a rotated version of self by quaternion.
+            quaternion: A Quaternion object.
+        """
+        length = self.magnitude()
+        self_copy = self.normalized()
+
+        a = quaternion.w
+        b = quaternion.x
+        c = quaternion.y
+        d = quaternion.z
+
+        r11 = a * a + b * b - c * c - d * d
+        r21 = 2 * b * c + 2 * a * d
+        r31 = 2 * b * d - 2 * a * c
+        r12 = 2 * b * c - 2 * a * d
+        r22 = a * a - b * b + c * c - d * d
+        r32 = 2 * c * d + 2 * a * b
+        r13 = 2 * b * d + 2 * a * c
+        r23 = 2 * c * d - 2 * a * b
+        r33 = a * a - b * b - c * c + d * d
+
+        i = self_copy.i
+        j = self_copy.j
+        k = self_copy.k
+
+        self_copy.i = i * r11 + j * r12 + k * r13
+        self_copy.j = i * r21 + j * r22 + k * r23
+        self_copy.k = i * r31 + j * r32 + k * r33
+
+        self_copy.i *= length
+        self_copy.j *= length
+        self_copy.k *= length
+
+        return self_copy
+
     def scale_pixels_to_meter(self) -> None:
         """Scale self from pixels to meters.
         """

@@ -62,6 +62,7 @@ class MainConverter:
         self._order = None
         self._frame_time = None
         self._root_bone = None
+        self._fix_orientation = Quaternion(0.0, 0.0, 0.0, 1.0)
 
         if 'functions' in function_directory and 'datapacks' in function_directory \
                 and 'functions' not in function_directory[-10:len(function_directory)]:
@@ -89,6 +90,22 @@ class MainConverter:
         self._global_offset_fix = None
         self._order = order
         self._root_bone = None
+        self._fix_orientation = Quaternion(0.0, 0.0, 0.0, 1.0)
+
+        unit_vectors = {
+            'x': Vector3(1.0, 0.0, 0.0),
+            'y': Vector3(0.0, 1.0, 0.0),
+            'z': Vector3(0.0, 0.0, 1.0),
+            '-x': Vector3(-1.0, 0.0, 0.0),
+            '-y': Vector3(0.0, -1.0, 0.0),
+            '-z': Vector3(0.0, 0.0, -1.0)
+        }
+
+        if up != 'y':
+            rotate_from = unit_vectors[up].copy()
+            rotate_to = Vector3(0.0, 1.0, 0.0)
+            self._fix_orientation = Quaternion().between_vectors(rotate_from, rotate_to)
+
         with open(file_path, encoding='utf-8') as file:
             parent_stack = []
             mode = 0
@@ -354,27 +371,30 @@ class MainConverter:
                 bone_vector = Vector3(0.0, 0.0, 0.0)
 
             # Fix the new rotation
-            child_rot = Quaternion().set_from_euler(Euler('xyz', *frame_bone.channels[3:6]))
+            child_rot = Quaternion().set_from_euler(Euler(self._order, *frame_bone.channels[3:6]))
             child_rot.parent(parent_rot)
 
             child_pos = parent_pos + bone_vector
 
             # display
             if frame_bone.bone_name not in {'Hip', 'PositionOffset'}:
-                inbetweens = (bone_vector.magnitude() * self.scale)
-                if inbetweens > 1.0:
+                real_length = (bone_vector.magnitude() * self.scale)
+                if real_length > 1.0:
 
                     vector_step = bone_vector.normalized() * 10
 
                     # in between stone
                     for i in range(int(bone_vector.magnitude() / 10)):
-                        xyz = ('{:f}'.format(j * self.scale) for j in position * (1 / self.scale) + parent_pos + vector_step * (i + 0.5))
+                        xyz = ('{:f}'.format(j) for j in position + (
+                                (parent_pos + vector_step * (i + 0.5)) * self.scale
+                        ).rotated_by_quaternion(self._fix_orientation))
 
                         commands.append(
                             'summon minecraft:falling_block ' + ' '.join(xyz) +
                             ' {Tags:[\'armature_sand\'],NoGravity:true,BlockState:{Name:"minecraft:stone"}}')
 
-                xyz = ('{:f}'.format(i * self.scale) for i in position * (1 / self.scale) + child_pos)
+                xyz = ('{:f}'.format(i) for i in
+                       position + (child_pos * self.scale).rotated_by_quaternion(self._fix_orientation))
 
                 # node
                 commands.append(
