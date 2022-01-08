@@ -144,11 +144,10 @@ class AecArmorStandPair:
         """
         q = Quaternion().between_vectors(self.size, self.t_pose)
         q.parent(rotation)
-
-
+        q.parent(fix_orientation)
 
         commands = 'execute at ' + root_uuid + ' run tp ' + self.aec_uuid + ' ~' + ' ~'.join(
-            ('{:f}'.format(i) for i in position.to_tuple())) + '\n'
+            ('{:f}'.format(i) for i in position.rotated_by_quaternion(fix_orientation).to_tuple())) + '\n'
         commands += 'data merge entity ' + self.aec_uuid + ' {Air: ' + str(int(self._update)) + '}\n'
 
         rot = list(Euler('zyx').set_from_quaternion(q).to_tuple())
