@@ -397,34 +397,39 @@ class Vector3:
             quaternion: A Quaternion object.
         """
         length = self.magnitude()
-        self.normalize()
+        if length == 0.0:
+            self.i = 0.0
+            self.j = 0.0
+            self.k = 0.0
+        else:
+            self.normalize()
 
-        a = quaternion.w
-        b = quaternion.x
-        c = quaternion.y
-        d = quaternion.z
+            a = quaternion.w
+            b = quaternion.x
+            c = quaternion.y
+            d = quaternion.z
 
-        r11 = a * a + b * b - c * c - d * d
-        r21 = 2 * b * c + 2 * a * d
-        r31 = 2 * b * d - 2 * a * c
-        r12 = 2 * b * c - 2 * a * d
-        r22 = a * a - b * b + c * c - d * d
-        r32 = 2 * c * d + 2 * a * b
-        r13 = 2 * b * d + 2 * a * c
-        r23 = 2 * c * d - 2 * a * b
-        r33 = a * a - b * b - c * c + d * d
+            r11 = a * a + b * b - c * c - d * d
+            r21 = 2 * b * c + 2 * a * d
+            r31 = 2 * b * d - 2 * a * c
+            r12 = 2 * b * c - 2 * a * d
+            r22 = a * a - b * b + c * c - d * d
+            r32 = 2 * c * d + 2 * a * b
+            r13 = 2 * b * d + 2 * a * c
+            r23 = 2 * c * d - 2 * a * b
+            r33 = a * a - b * b - c * c + d * d
 
-        i = self.i
-        j = self.j
-        k = self.k
+            i = self.i
+            j = self.j
+            k = self.k
 
-        self.i = i * r11 + j * r12 + k * r13
-        self.j = i * r21 + j * r22 + k * r23
-        self.k = i * r31 + j * r32 + k * r33
+            self.i = i * r11 + j * r12 + k * r13
+            self.j = i * r21 + j * r22 + k * r23
+            self.k = i * r31 + j * r32 + k * r33
 
-        self.i *= length
-        self.j *= length
-        self.k *= length
+            self.i *= length
+            self.j *= length
+            self.k *= length
 
     def rotated_by_quaternion(self, quaternion: Quaternion):
         """Return a rotated version of self by quaternion.

@@ -21,6 +21,12 @@ def uuid_str_to_uuid_nbt(uuid: str) -> str:
     return 'UUID:[I;' + ','.join(uuids) + ']'
 
 
+def uuid_ints_to_uuid_str(uuid: tuple[int, int, int, int]):
+    usc = tuple(hex(i % 2**32)[2:10].zfill(8) for i in uuid)
+
+    return '-'.join([usc[0], usc[1][0:4], usc[1][4:8], usc[2][0:4], usc[2][4:8] + usc[3]])
+
+
 def get_function_directory(directory: str, file: Optional[str]) -> str:
     """Return a function directory  from the directory and file that Minecraft uses to look up functions."""
     directory_list = directory.split('/')

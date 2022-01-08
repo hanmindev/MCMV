@@ -2,6 +2,7 @@ from typing import Optional
 
 import utility
 from math_objects import Quaternion, Vector3, Euler
+import random
 
 
 class Bone:
@@ -14,6 +15,7 @@ class Bone:
       - offset: The offset from the bone's parent.
       - parent: Name of the parent of this bone.
       - children: Set containing names of this bone's children.
+      - size: The size of the bone
     """
 
     def __init__(self, bone_name: str) -> None:
@@ -108,12 +110,19 @@ class AecArmorStandPair:
     t_pose: Vector3
     item: str
     _update: bool
+    _seed_prefix: str
 
-    def __init__(self, name: str, aec_uuid: str, stand_uuid: str, size: Vector3, offset: Vector3,
-                 item: str, t_pose: Vector3) -> None:
+    def __init__(self, seed_prefix: str, name: str,
+                 item: str, size: Vector3, offset: Vector3, t_pose: Vector3, show_names: bool) -> None:
         self.name = name
-        self.aec_uuid = aec_uuid
-        self.stand_uuid = stand_uuid
+        self._seed_prefix = seed_prefix.replace('/', ',').replace(':', ',').replace(' ', '_')
+
+        random.seed(seed_prefix + name)
+        # noinspection PyTypeChecker
+        self.aec_uuid = utility.uuid_ints_to_uuid_str(tuple(random.randint(-2 ** 31, 2 ** 31 - 1) for _ in range(4)))
+        # noinspection PyTypeChecker
+        self.stand_uuid = utility.uuid_ints_to_uuid_str(tuple(random.randint(-2 ** 31, 2 ** 31 - 1) for _ in range(4)))
+
         # vector of the bone
         self.size = size
         # vector of the offset of the bone
@@ -121,20 +130,30 @@ class AecArmorStandPair:
         self.t_pose = t_pose
         # name of the item to hold
         self.item = item
+        self.show_names = show_names
 
         self._update = True
 
     def return_reset_commands(self) -> list[str]:
         """Return a list of commands to reset the AEC-Stand pair."""
+        tags = {'armature_stands', *self._seed_prefix.split(','), self.name.replace(' ', '_')}
+
         commands = ['kill ' + self.aec_uuid,
                     'kill ' + self.stand_uuid,
-                    'summon area_effect_cloud ~ ~ ~ {Duration:2147483647,' + utility.uuid_str_to_uuid_nbt(
-                        self.aec_uuid) + ',Passengers:[{id:"minecraft:armor_stand",DisabledSlots:4144959,Invisible:1,'
-                                         '' + utility.uuid_str_to_uuid_nbt(self.stand_uuid) + '}]}',
+                    'summon area_effect_cloud ~ ~ ~ {Tags:[' + ','.join(
+                        '\"' + i + '\"' for i in tags) + '],Duration:2147483647,' + utility.uuid_str_to_uuid_nbt(
+                        self.aec_uuid) + ',Passengers:[{id:"minecraft:armor_stand",Tags:[' + ','.join(
+                        '\'' + i + '\'' for i in tags) + '],DisabledSlots:4144959,Invisible:1,'
+                                                         '' + utility.uuid_str_to_uuid_nbt(
+                        self.stand_uuid) + ',CustomNameVisible: ' + str(
+                        1) * self.show_names + 'b, '
+                                               'CustomName: \'{"text": "'
+                                               '' + self.name + '"}\' }]}',
                     'item replace entity ' + self.stand_uuid + ' armor.head with ' + self.item]
         return commands
 
-    def return_transformation_command(self, position: Vector3, rotation: Quaternion, root_uuid: str, fix_orientation: Quaternion) -> str:
+    def return_transformation_command(self, position: Vector3, rotation: Quaternion, root_uuid: str,
+                                      fix_orientation: Quaternion) -> str:
         """Return commands as a single string that translate and rotate the AEC-ArmorStand pair
         to the specified position and rotation.
 
@@ -142,7 +161,10 @@ class AecArmorStandPair:
           - rotation: The rotation of the armor_stand
           - root_uuid: The UUID of the entity that the AEC-ArmorStand pair is positioned relative to.
         """
-        q = Quaternion().between_vectors(self.size, self.t_pose)
+        if self.size.magnitude() != 0 and self.t_pose.magnitude() != 0:
+            q = Quaternion().between_vectors(self.size, self.t_pose)
+        else:
+            q = Quaternion(0.0, 0.0, 0.0, 1.0)
         q.parent(rotation)
         q.parent(fix_orientation)
 
