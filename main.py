@@ -2,7 +2,7 @@ import math
 import os
 import shutil
 import sys
-from typing import Optional
+from typing import Optional, Union
 
 import utility
 from math_objects import Euler, Vector3, Quaternion
@@ -225,10 +225,9 @@ class MainConverter:
             child_bones = parent_bone.children
 
             for child_bone in child_bones:
-                is_defined_bone = False
-                if child_bone.bone_name in aec_stand_pairs:
-                    is_defined_bone = True
-                    # aec_stand_pairs[child_bone.bone_name]
+                is_defined_bone = child_bone.bone_name in aec_stand_pairs
+
+                # aec_stand_pairs[child_bone.bone_name]
                 child_frame_bone = frame.frame_bones[child_bone.bone_name]
 
                 if child_frame_bone.bone_name[0:9] == 'End Site_':
@@ -244,6 +243,8 @@ class MainConverter:
 
                 if is_defined_bone:
                     child_pos_rel * (aec_stand_pairs[child_bone.bone_name].size.magnitude() / child_pos_rel.magnitude())
+                else:
+                    child_pos_rel = Vector3(0.0, 0.0, 0.0)
 
                 child_pos = parent_pos + child_pos_rel
                 resulting_position = child_pos * self.scale
@@ -265,10 +266,10 @@ class MainConverter:
         return dfs(initial_frame_bone, origin, origin_rot)
 
     def globalize_armature(self, function_name: str, root_uuid: str,
-                           stands: list[tuple[str, str, str,
+                           stands: list[tuple[str, str,
                                               Vector3,
                                               Vector3,
-                                              Optional[Vector3]]], fill_in: bool = False,
+                                              Optional[Union[Vector3, str]]]], fill_in: bool = False,
                            show_names: bool = False) -> None:
         """Loads a .bvh file.
 
@@ -292,34 +293,36 @@ class MainConverter:
 
         self._useful_bones = set()
         stand_bone_names = set()
+        end_bone_names = set()
 
         aec_stand_pairs = {}
 
         for stand in stands:
             start_bone = self.current_armature.bones[stand[0]]
-            end_bone = self.current_armature.bones[stand[1]]
+            end_bone = self.current_armature.bones[stand[4]]
 
-            aec_stand_pairs[start_bone.bone_name] = AecArmorStandPair(utility.get_function_directory(
+            aec_stand_pairs[end_bone.bone_name] = AecArmorStandPair(utility.get_function_directory(
                 self.function_directory, function_name),
                 root_uuid,
                 stand[0],  # name
-                stand[2],  # item
+                stand[1],  # item
                 start_bone,  # start bone
-                end_bone,  # end bone
-                stand[3],  # size
-                stand[4],  # offset
-                start_bone.offset,  # t-pose
+                stand[2],  # size
+                stand[3],  # offset
+                end_bone,  # t-pose helper
                 show_names
             )
-            if stand[5] is not None:
-                aec_stand_pairs[start_bone.bone_name].t_pose = stand[5]
+
             stand_bone_names.add(stand[0])
+            end_bone_names.add(stand[4])
 
         if fill_in:
-            remainder = set(self.current_armature.bones.keys()).difference(set(aec_stand_pairs.keys()))
-            for stand_name in remainder:
+            for stand_name in set(self.current_armature.bones.keys()).difference(end_bone_names):
                 start_bone = self.current_armature.bones[stand_name].parent
                 end_bone = self.current_armature.bones[stand_name]
+
+                if start_bone == 'Neck':
+                    print('bruh')
 
                 if start_bone is None:
                     continue
@@ -330,10 +333,9 @@ class MainConverter:
                     stand_name,
                     'end_rod',
                     start_bone,
-                    end_bone,
                     Vector3(0.0, math.sqrt(2) / 2, math.sqrt(2) / 2) * end_bone.offset.magnitude() * self.scale,
                     start_bone.offset * self.scale,
-                    end_bone.offset,
+                    end_bone,
                     show_names
                 )
                 aec_stand_pairs[end_bone.bone_name] = new_aec_stand_pair

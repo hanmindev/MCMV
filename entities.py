@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Union
 import utility
 from math_objects import Quaternion, Vector3, Euler
 import random
@@ -101,14 +101,13 @@ class AecArmorStandPair:
     _seed_prefix: str
 
     def __init__(self, _seed_prefix: str, root_uuid: str, name: str,
-                 item: str, start_bone: Bone, end_bone: Bone, size: Vector3, offset: Vector3, t_pose: Vector3, show_names: bool) -> None:
-        self.name = name
+                 item: str, start_bone: Bone, size: Vector3, offset: Vector3, end_bone: Bone, show_names: bool) -> None:
+        self.name = end_bone.bone_name
         self.start_bone = start_bone
-        self.end_bone = end_bone
         self._seed_prefix = _seed_prefix.replace('/', ',').replace(':', ',').replace(' ', '_')
         self.root_uuid = root_uuid
 
-        random.seed(_seed_prefix + name)
+        random.seed(_seed_prefix + self.name)
         # noinspection PyTypeChecker
         self.aec_uuid = utility.uuid_ints_to_uuid_str(tuple(random.randint(-2 ** 31, 2 ** 31 - 1) for _ in range(4)))
         # noinspection PyTypeChecker
@@ -118,12 +117,18 @@ class AecArmorStandPair:
         self.size = size
         # vector of the offset of the bone
         self.offset = offset
-        self.t_pose = t_pose
+        self.end_bone = end_bone
+        self.t_pose = end_bone.offset
+
         # name of the item to hold
         self.item = item
         self.show_names = show_names
 
         self._update = True
+
+    def __repr__(self) -> str:
+        """Return a string representation of the AecArmorStandPair object for debugging purposes."""
+        return 'AEC-AS Object: ' + self.name
 
     def return_reset_commands(self) -> list[str]:
         """Return a list of commands to reset the AEC-Stand pair."""
