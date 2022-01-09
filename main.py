@@ -219,7 +219,7 @@ class MainConverter:
                                  aec_stand_pairs: dict[str, AecArmorStandPair], original_end_bone_names: set) -> list[
         str]:
 
-        def dfs(parent_frame_bone: FrameBone, parent_pos: Vector3, parent_rot: Quaternion) -> list[str]:
+        def dfs(parent_frame_bone: FrameBone, parent_pos: Vector3, parent_rot: Quaternion, grandparent_rot: Quaternion=Quaternion(0.0,0.0,0.0,1.0)) -> list[str]:
             commands = []
             # recursion
             parent_bone = parent_frame_bone.bone
@@ -250,7 +250,10 @@ class MainConverter:
                             q = Quaternion().between_vectors(child_aec_stand.size, child_aec_stand.t_pose)
 
                             q.parent(parent_rot)
-                            bone_start_pos += child_aec_stand.offset.copy().rotated_by_quaternion(q)
+                            try:
+                                bone_start_pos += child_aec_stand.offset.copy().rotated_by_quaternion(grandparent_rot)
+                            except KeyError:
+                                pass
                             bone_end_pos = bone_start_pos + child_aec_stand.size.copy().rotated_by_quaternion(q)
 
                         except KeyError:
@@ -270,7 +273,7 @@ class MainConverter:
                     child_rot = child_frame_bone.rotation.copy()
                     child_rot.parent(parent_rot)
 
-                    commands += dfs(child_frame_bone, bone_end_pos, child_rot)
+                    commands += dfs(child_frame_bone, bone_end_pos, child_rot, parent_rot)
 
             return commands
 
