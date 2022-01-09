@@ -215,11 +215,11 @@ class MainConverter:
                             self.current_armature.frames.append(new_frame)
                         frame += 1
 
-    def globalize_frame_armature(self, frame: Frame, function_name: str,
-                                 aec_stand_pairs: dict[str, AecArmorStandPair], original_end_bone_names: set) -> list[
-        str]:
+    def globalize_frame_armature(self, frame: Frame, aec_stand_pairs: dict[str, AecArmorStandPair],
+                                 original_end_bone_names: set, base: str = None) -> list[str]:
 
-        def dfs(parent_frame_bone: FrameBone, parent_pos: Vector3, parent_rot: Quaternion, grandparent_rot: Quaternion=Quaternion(0.0,0.0,0.0,1.0)) -> list[str]:
+        def dfs(parent_frame_bone: FrameBone, parent_pos: Vector3, parent_rot: Quaternion,
+                grandparent_rot: Quaternion = Quaternion(0.0, 0.0, 0.0, 1.0), translate: bool = False) -> list[str]:
             commands = []
             # recursion
             parent_bone = parent_frame_bone.bone
@@ -228,7 +228,6 @@ class MainConverter:
             for child_bone in child_bones:
                 is_defined_bone = child_bone.bone_name in aec_stand_pairs
                 is_generated_bone = child_bone.bone_name not in original_end_bone_names
-                parent_frame_bone = frame.frame_bones[parent_bone.bone_name]
                 child_frame_bone = frame.frame_bones[child_bone.bone_name]
 
                 bone_end_pos = parent_pos.copy()
@@ -236,11 +235,10 @@ class MainConverter:
                     bone_start_pos = parent_pos.copy()
                     if is_generated_bone:
                         try:
-                            bone_end_pos = bone_start_pos + child_frame_bone.position.rotated_by_quaternion(parent_rot) * self.scale
+                            bone_end_pos = bone_start_pos + child_frame_bone.position.rotated_by_quaternion(
+                                parent_rot) * self.scale
                         except AttributeError:
                             bone_end_pos = bone_start_pos.copy()
-
-                        # bone_start_pos *= self.scale
                     else:
                         # account for the model vector and t pose differences
 
@@ -264,30 +262,39 @@ class MainConverter:
 
                     resulting_position.rotate_by_quaternion(self._fix_orientation)
                     resulting_rotation.parent(self._fix_orientation)
+                    resulting_position -= self._global_offset_fix
 
                     commands += aec_stand_pairs[child_bone.bone_name].return_transformation_command(
                         resulting_position,
                         resulting_rotation)
+                elif translate and child_frame_bone.bone_name[0:9] != 'End Site_':
+                    try:
+                        bone_end_pos += child_frame_bone.position.rotated_by_quaternion(parent_rot) * self.scale
+                    except AttributeError:
+                        bone_end_pos += child_frame_bone.position * self.scale
 
                 if child_frame_bone.bone_name[0:9] != 'End Site_':
                     child_rot = child_frame_bone.rotation.copy()
                     child_rot.parent(parent_rot)
-
-                    commands += dfs(child_frame_bone, bone_end_pos, child_rot, parent_rot)
+                    if translate and parent_bone.bone_name == base:
+                        translate = False
+                        if self._global_offset_fix is None:
+                            self._global_offset_fix = bone_end_pos.copy()
+                    commands += dfs(child_frame_bone, bone_end_pos, child_rot, parent_rot, translate=translate)
 
             return commands
 
         initial_frame_bone = frame.frame_bones[self.current_armature.root_bone_name]
-        origin = Vector3(0, 0, 0)
+        origin = initial_frame_bone.position.copy()
         origin_rot = Quaternion(0, 0, 0, 1)
-        return dfs(initial_frame_bone, origin, origin_rot)
+        return dfs(initial_frame_bone, origin, origin_rot, translate=base is not None)
 
     def globalize_armature(self, function_name: str, root_uuid: str,
                            stands: list[tuple[str, str,
                                               Vector3,
                                               Vector3,
                                               Optional[Union[Vector3, str]]]], fill_in: bool = False,
-                           show_names: bool = False) -> None:
+                           show_names: bool = False, base: str = None, center: bool = True) -> None:
         """Loads a .bvh file.
 
             function_name: Name of the Minecraft function (e.g. could be name of the character, armature_001, etc)
@@ -369,13 +376,13 @@ class MainConverter:
             os.mkdir(os.path.join(self.function_directory, function_name))
         except FileExistsError:
             pass
-        self._global_offset_fix = None
+        self._global_offset_fix = Vector3(0.0, 0.0, 0.0)
 
         frames = self.current_armature.frames
 
         for ticks, frame in enumerate(frames):
-            if ticks == 0:
-                self._global_offset_fix = frame.frame_bones[self.current_armature.root_bone_name].position * self.scale
+            if ticks == 0 and base is not None and center:
+                self._global_offset_fix = None
 
             # per function
 
@@ -383,8 +390,8 @@ class MainConverter:
             open(complete_path, 'w').close()
             g = open(complete_path, "a")
 
-            for command in self.globalize_frame_armature(frame, function_name, aec_stand_pairs,
-                                                         original_end_bone_names):
+            for command in self.globalize_frame_armature(frame, aec_stand_pairs,
+                                                         original_end_bone_names, base):
                 g.write(command + "\n")
 
         self._aec_stand_pairs[function_name] = aec_stand_pairs
@@ -460,10 +467,9 @@ class MainConverter:
                 commands.append(
                     'summon minecraft:falling_block ' + ' '.join(xyz) +
                     ' {Tags:[\'armature_sand\',\'' + function_name + '\'],NoGravity:true,BlockState:{'
-                                                                     'Name:"minecraft:diamond_block"}, '
-                                                                     'CustomNameVisible: ' + str(1) * show_names + 'b, '
-                                                                                                                   'CustomName: \'{"text": "'
-                                                                                                                   '' + child_bone.bone_name + '"}\'' + '}')
+                                                                     'Name:"minecraft:diamond_block"},'
+                                                                     'CustomNameVisible: ' + str(1) * show_names +
+                    'b, CustomName: \'{"text": " ' + child_bone.bone_name + '"}\'' + '}')
 
                 if child_frame_bone.bone_name[0:9] != 'End Site_':
                     dfs(child_frame_bone, child_pos, child_rot)
