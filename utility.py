@@ -38,7 +38,10 @@ def get_function_directory(directory: str, file: Optional[str]) -> str:
             if directory_list[i - 2] == 'datapacks' and directory_list[i + 2] == 'functions':
                 datapack_name = directory_list[i + 1]
                 datapack_directory = directory_list[i + 3:len(directory_list)]
-                datapack_directory.append('')
-                return datapack_name + ':' + '/'.join(datapack_directory) + file
+                if file is None:
+                    return datapack_name + ':' + '/'.join(datapack_directory)
+                else:
+                    datapack_directory.append('')
+                    return datapack_name + ':' + '/'.join(datapack_directory) + file
     print('This doesn\'t seem to be a valid path!')
     sys.exit()
