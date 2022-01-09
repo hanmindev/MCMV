@@ -216,7 +216,8 @@ class MainConverter:
                         frame += 1
 
     def globalize_frame_armature(self, frame: Frame, function_name: str,
-                                 aec_stand_pairs: dict[str, AecArmorStandPair]) -> list[str]:
+                                 aec_stand_pairs: dict[str, AecArmorStandPair], original_end_bone_names: set) -> list[
+        str]:
 
         def dfs(parent_frame_bone: FrameBone, parent_pos: Vector3, parent_rot: Quaternion) -> list[str]:
             commands = []
@@ -225,38 +226,76 @@ class MainConverter:
             child_bones = parent_bone.children
 
             for child_bone in child_bones:
-                is_defined_bone = child_bone.bone_name in aec_stand_pairs
-
-                # aec_stand_pairs[child_bone.bone_name]
+                parent_frame_bone = frame.frame_bones[parent_bone.bone_name]
                 child_frame_bone = frame.frame_bones[child_bone.bone_name]
 
-                if child_frame_bone.bone_name[0:9] == 'End Site_':
-                    child_pos_rel = child_bone.offset.copy()
-                    child_rot = Quaternion(0.0, 0.0, 0.0, 1.0)
-                else:
-                    child_pos_rel = child_frame_bone.position.copy()
+                # this following offset is armor stand specific
+                try:
+                    bone_start_pos = parent_pos.copy() + aec_stand_pairs[
+                        parent_bone.bone_name].offset.copy().rotated_by_quaternion(parent_rot)
+                except KeyError:
+                    bone_start_pos = parent_pos.copy()
+                try:
+                    bone_end_pos = bone_start_pos + child_frame_bone.position.rotated_by_quaternion(parent_rot)
+                except AttributeError:
+                    bone_end_pos = bone_start_pos.copy()
+                resulting_position = bone_start_pos.copy() * self.scale
+                resulting_rotation = parent_rot.copy()
 
+                resulting_position.rotate_by_quaternion(self._fix_orientation)
+                resulting_rotation.parent(self._fix_orientation)
+
+                commands += aec_stand_pairs[child_bone.bone_name].return_transformation_command(
+                    resulting_position,
+                    resulting_rotation)
+
+                if child_frame_bone.bone_name[0:9] != 'End Site_':
                     child_rot = child_frame_bone.rotation.copy()
                     child_rot.parent(parent_rot)
 
-                child_pos_rel.rotate_by_quaternion(parent_rot)
+                    commands += dfs(child_frame_bone, bone_end_pos, child_rot)
 
-                if is_defined_bone:
-                    child_pos_rel * (aec_stand_pairs[child_bone.bone_name].size.magnitude() / child_pos_rel.magnitude())
-                else:
-                    child_pos_rel = Vector3(0.0, 0.0, 0.0)
 
-                child_pos = parent_pos + child_pos_rel
-                resulting_position = child_pos * self.scale
-                resulting_position.rotate_by_quaternion(self._fix_orientation)
-                # resulting_position += position
-
-                if is_defined_bone:
-                    commands += aec_stand_pairs[child_bone.bone_name].return_transformation_command(resulting_position,
-                                                                                                    parent_rot)
-
-                if child_frame_bone.bone_name[0:9] != 'End Site_':
-                    commands += dfs(child_frame_bone, child_pos, child_rot)
+            # for child_bone in child_bones:
+            #     is_defined_bone = child_bone.bone_name in aec_stand_pairs
+            #     is_generated_bone = child_bone.bone_name not in original_end_bone_names
+            #
+            #     # aec_stand_pairs[child_bone.bone_name]
+            #     child_frame_bone = frame.frame_bones[child_bone.bone_name]
+            #
+            #     if is_defined_bone:
+            #         if is_generated_bone:
+            #             child_offset = aec_stand_pairs[child_bone.bone_name].offset.copy()
+            #             child_pos = parent_pos + child_offset * self.scale
+            #
+            #             child_size = aec_stand_pairs[child_bone.bone_name].size.copy() * self.scale
+            #         else:
+            #             child_offset = aec_stand_pairs[child_bone.bone_name].offset.copy()
+            #             child_pos = parent_pos + child_offset
+            #
+            #             child_size = aec_stand_pairs[child_bone.bone_name].size.copy()
+            #
+            #         child_pos.rotate_by_quaternion(parent_rot)
+            #         child_size.rotate_by_quaternion(parent_rot)
+            #
+            #         resulting_position = child_pos.copy()
+            #         resulting_position.rotate_by_quaternion(self._fix_orientation)
+            #
+            #         resulting_rotation = parent_rot.copy()
+            #         resulting_rotation.parent(self._fix_orientation)
+            #         # resulting_position += position
+            #
+            #         commands += aec_stand_pairs[child_bone.bone_name].return_transformation_command(
+            #             resulting_position,
+            #             resulting_rotation)
+            #     else:
+            #         child_pos = parent_pos.copy()
+            #         child_size = Vector3(0.0, 0.0, 0.0)
+            #
+            #     if child_frame_bone.bone_name[0:9] != 'End Site_':
+            #         child_rot = child_frame_bone.rotation.copy()
+            #         child_rot.parent(parent_rot)
+            #         commands += dfs(child_frame_bone, child_pos + child_size, child_rot)
 
             return commands
 
@@ -292,8 +331,7 @@ class MainConverter:
         self._aec_stand_pairs[function_name] = {}
 
         self._useful_bones = set()
-        stand_bone_names = set()
-        end_bone_names = set()
+        original_end_bone_names = set()
 
         aec_stand_pairs = {}
 
@@ -312,17 +350,12 @@ class MainConverter:
                 end_bone,  # t-pose helper
                 show_names
             )
-
-            stand_bone_names.add(stand[0])
-            end_bone_names.add(stand[4])
+            original_end_bone_names.add(stand[4])
 
         if fill_in:
-            for stand_name in set(self.current_armature.bones.keys()).difference(end_bone_names):
+            for stand_name in set(self.current_armature.bones.keys()).difference(set(aec_stand_pairs.keys())):
                 start_bone = self.current_armature.bones[stand_name].parent
                 end_bone = self.current_armature.bones[stand_name]
-
-                if start_bone == 'Neck':
-                    print('bruh')
 
                 if start_bone is None:
                     continue
@@ -333,8 +366,8 @@ class MainConverter:
                     stand_name,
                     'end_rod',
                     start_bone,
-                    Vector3(0.0, math.sqrt(2) / 2, math.sqrt(2) / 2) * end_bone.offset.magnitude() * self.scale,
-                    start_bone.offset * self.scale,
+                    Vector3(0.0, math.sqrt(2) / 2, math.sqrt(2) / 2) * end_bone.offset.magnitude(),
+                    Vector3(0.0, 0.0, 0.0),
                     end_bone,
                     show_names
                 )
@@ -347,7 +380,7 @@ class MainConverter:
                 if parent is not None:
                     add_parents(parent.bone_name)
 
-        for stand_bone_name in stand_bone_names:
+        for stand_bone_name in set(aec_stand_pairs.keys()):
             add_parents(stand_bone_name)
 
         try:
@@ -372,7 +405,8 @@ class MainConverter:
             open(complete_path, 'w').close()
             g = open(complete_path, "a")
 
-            for command in self.globalize_frame_armature(frame, function_name, aec_stand_pairs):
+            for command in self.globalize_frame_armature(frame, function_name, aec_stand_pairs,
+                                                         original_end_bone_names):
                 g.write(command + "\n")
 
         self._aec_stand_pairs[function_name] = aec_stand_pairs
@@ -387,7 +421,7 @@ class MainConverter:
         tags = {'armature_stands', *utility.get_function_directory(
             self.function_directory, None).replace('/', ',').replace(':', ',').replace(' ', '_').split(',')}
 
-        commands = ['kill @e[tag=' + ',tag='.join(tags)+']']
+        commands = ['kill @e[tag=' + ',tag='.join(tags) + ']']
         for function_name in self._aec_stand_pairs:
             for aec_stand_pair in self._aec_stand_pairs[function_name]:
                 commands += self._aec_stand_pairs[function_name][aec_stand_pair].return_reset_commands()
