@@ -246,13 +246,12 @@ class MainConverter:
 
                         # these following offset is armor stand specific
                         try:
-                            parent_aec_stand = aec_stand_pairs[parent_bone.bone_name]
                             child_aec_stand = aec_stand_pairs[child_bone.bone_name]
-                            q_c = Quaternion().between_vectors(child_aec_stand.size, child_aec_stand.t_pose)
+                            q = Quaternion().between_vectors(child_aec_stand.size, child_aec_stand.t_pose)
 
-                            q_c.parent(parent_rot)
-                            bone_start_pos += child_aec_stand.offset.copy().rotated_by_quaternion(q_c)
-                            bone_end_pos = bone_start_pos + child_aec_stand.size.copy().rotated_by_quaternion(q_c)
+                            q.parent(parent_rot)
+                            bone_start_pos += child_aec_stand.offset.copy().rotated_by_quaternion(q)
+                            bone_end_pos = bone_start_pos + child_aec_stand.size.copy().rotated_by_quaternion(q)
 
                         except KeyError:
                             bone_end_pos = bone_start_pos
