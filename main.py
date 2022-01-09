@@ -39,6 +39,7 @@ class MainConverter:
     _bone_list: list[str]
     _aec_stand_pairs: dict[str: dict[str: AecArmorStandPair]]
     _global_offset_fix: Optional[Vector3]
+    _global_offset_addition: Optional[Vector3]
     _commands_to_index: dict[str: int]
     _useful_bones: set
     _order: Optional[str]
@@ -53,12 +54,10 @@ class MainConverter:
         """
         self.function_directory = function_directory
         self._aec_stand_pairs = {}
-        # self._global_offset_fix = None
-        # self._commands_to_index = {}
-        # self.scale = 1.0
-        # self._useful_bones = set()
-        # self._order = None
-        # self._frame_time = None
+        self._global_offset_fix = Vector3(0.0, 0.0, 0.0)
+        self._global_offset_addition = None
+        self.scale = 1.0
+        self._order = None
         self._root_bone = None
         self._fix_orientation = Quaternion(0.0, 0.0, 0.0, 1.0)
 
@@ -215,8 +214,71 @@ class MainConverter:
                             self.current_armature.frames.append(new_frame)
                         frame += 1
 
+    def find_center_offset_global_frame_armature(self, frame: Frame, aec_stand_pairs: dict[str, AecArmorStandPair],
+                                 original_end_bone_names: set, base: str = None) -> Vector3:
+
+        def dfs(parent_frame_bone: FrameBone, parent_pos: Vector3, parent_rot: Quaternion,
+                grandparent_rot: Quaternion = Quaternion(0.0, 0.0, 0.0, 1.0), translate: bool = False) -> Vector3:
+            commands = []
+            # recursion
+            parent_bone = parent_frame_bone.bone
+            child_bones = parent_bone.children
+
+            for child_bone in child_bones:
+                is_defined_bone = child_bone.bone_name in aec_stand_pairs
+                is_generated_bone = child_bone.bone_name not in original_end_bone_names
+                child_frame_bone = frame.frame_bones[child_bone.bone_name]
+
+                bone_end_pos = parent_pos.copy()
+                if is_defined_bone:
+                    bone_start_pos = parent_pos.copy()
+                    if is_generated_bone:
+                        try:
+                            bone_end_pos = bone_start_pos + child_frame_bone.position.rotated_by_quaternion(
+                                parent_rot) * self.scale
+                        except AttributeError:
+                            bone_end_pos = bone_start_pos.copy()
+                    else:
+                        # account for the model vector and t pose differences
+
+                        # these following offset is armor stand specific
+                        try:
+                            child_aec_stand = aec_stand_pairs[child_bone.bone_name]
+                            q = Quaternion().between_vectors(child_aec_stand.size, child_aec_stand.t_pose)
+
+                            q.parent(parent_rot)
+                            try:
+                                bone_start_pos += child_aec_stand.offset.copy().rotated_by_quaternion(grandparent_rot)
+                            except KeyError:
+                                pass
+                            bone_end_pos = bone_start_pos + child_aec_stand.size.copy().rotated_by_quaternion(q)
+
+                        except KeyError:
+                            bone_end_pos = bone_start_pos
+
+                elif translate and child_frame_bone.bone_name[0:9] != 'End Site_':
+                    try:
+                        bone_end_pos += child_frame_bone.position.rotated_by_quaternion(parent_rot) * self.scale
+                    except AttributeError:
+                        bone_end_pos += child_frame_bone.position * self.scale
+
+                if child_frame_bone.bone_name[0:9] != 'End Site_':
+                    child_rot = child_frame_bone.rotation.copy()
+                    child_rot.parent(parent_rot)
+                    if translate and parent_bone.bone_name == base:
+                        translate = False
+                        if self._global_offset_fix is None:
+                            return bone_end_pos
+                    return dfs(child_frame_bone, bone_end_pos, child_rot, parent_rot, translate=translate)
+
+        initial_frame_bone = frame.frame_bones[self.current_armature.root_bone_name]
+        # initial position + offset (defined by function) + shift vector to account for armor stand height
+        origin = (initial_frame_bone.position.copy() * self.scale) + Vector3(0.0, -1.4, 0.0)
+        origin_rot = Quaternion(0, 0, 0, 1)
+        return dfs(initial_frame_bone, origin, origin_rot, translate=base is not None)
+
     def globalize_frame_armature(self, frame: Frame, aec_stand_pairs: dict[str, AecArmorStandPair],
-                                 original_end_bone_names: set, base: str = None) -> list[str]:
+                                 original_end_bone_names: set, base: str = None, offset: Vector3 = Vector3(0.0, 0.0, 0.0)) -> list[str]:
 
         def dfs(parent_frame_bone: FrameBone, parent_pos: Vector3, parent_rot: Quaternion,
                 grandparent_rot: Quaternion = Quaternion(0.0, 0.0, 0.0, 1.0), translate: bool = False) -> list[str]:
@@ -278,14 +340,13 @@ class MainConverter:
                     child_rot.parent(parent_rot)
                     if translate and parent_bone.bone_name == base:
                         translate = False
-                        if self._global_offset_fix is None:
-                            self._global_offset_fix = bone_end_pos.copy()
                     commands += dfs(child_frame_bone, bone_end_pos, child_rot, parent_rot, translate=translate)
 
             return commands
 
         initial_frame_bone = frame.frame_bones[self.current_armature.root_bone_name]
-        origin = initial_frame_bone.position.copy()
+        # initial position + offset (defined by function) + shift vector to account for armor stand height
+        origin = (initial_frame_bone.position.copy() * self.scale) + offset + Vector3(0.0, -1.4, 0.0)
         origin_rot = Quaternion(0, 0, 0, 1)
         return dfs(initial_frame_bone, origin, origin_rot, translate=base is not None)
 
@@ -294,7 +355,7 @@ class MainConverter:
                                               Vector3,
                                               Vector3,
                                               Optional[Union[Vector3, str]]]], fill_in: bool = False,
-                           show_names: bool = False, base: str = None, center: bool = True) -> None:
+                           show_names: bool = False, base: str = None, center: bool = True, offset: Vector3 = Vector3(0.0, 0.0, 0.0)) -> None:
         """Loads a .bvh file.
 
             function_name: Name of the Minecraft function (e.g. could be name of the character, armature_001, etc)
@@ -376,13 +437,17 @@ class MainConverter:
             os.mkdir(os.path.join(self.function_directory, function_name))
         except FileExistsError:
             pass
-        self._global_offset_fix = Vector3(0.0, 0.0, 0.0)
+        self._global_offset_fix = None
 
         frames = self.current_armature.frames
 
         for ticks, frame in enumerate(frames):
-            if ticks == 0 and base is not None and center:
-                self._global_offset_fix = None
+            if ticks == 0:
+                if base is not None and center:
+                    self._global_offset_fix = self.find_center_offset_global_frame_armature(frame, aec_stand_pairs,
+                                                                                     original_end_bone_names, base)
+                else:
+                    self._global_offset_fix = Vector3(0.0, 0.0, 0.0)
 
             # per function
 
@@ -391,7 +456,7 @@ class MainConverter:
             g = open(complete_path, "a")
 
             for command in self.globalize_frame_armature(frame, aec_stand_pairs,
-                                                         original_end_bone_names, base):
+                                                         original_end_bone_names, base, offset):
                 g.write(command + "\n")
 
         self._aec_stand_pairs[function_name] = aec_stand_pairs
