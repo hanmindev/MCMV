@@ -1,91 +1,76 @@
-from typing import Optional
+from __future__ import annotations
 
+from typing import Optional
 import utility
 from math_objects import Quaternion, Vector3, Euler
 import random
 
 
-class Bone:
-    """Bone objects as described at the start of the .bvh file.
+# class Bone:
+#     """Bone objects as described at the start of the .bvh file.
+#
+#     Instance Attributes:
+#       - bone_name: Name of the bone
+#       - channel_count: The number of channels describing the Bone (e.g. position, rotation)
+#       - channel_names: The names of the channels (e.g. Xrotation, Xposition)
+#       - offset: The offset from the bone's parent.
+#       - parent: Name of the parent of this bone.
+#       - children: Set containing names of this bone's children.
+#       - size: The size of the bone
+#     """
+#
+#     def __init__(self, bone_name: str) -> None:
+#         self.bone_name = bone_name
+#         self.channel_count = 0
+#         self.channel_names = []
+#         self.offset = Vector3(0.0, 0.0, 0.0)
+#         self.parent = None
+#         self.children = set()
+#         self.size = None
+#
+#     bone_name: str
+#     channel_count: int
+#     channel_names = list[str]
+#     offset: Vector3
+#     parent: Optional[str]
+#     children: set[str]
+#
+#
 
-    Instance Attributes:
-      - bone_name: Name of the bone
-      - channel_count: The number of channels describing the Bone (e.g. position, rotation)
-      - channel_names: The names of the channels (e.g. Xrotation, Xposition)
-      - offset: The offset from the bone's parent.
-      - parent: Name of the parent of this bone.
-      - children: Set containing names of this bone's children.
-      - size: The size of the bone
-    """
-
-    def __init__(self, bone_name: str) -> None:
-        self.bone_name = bone_name
-        self.channel_count = 0
-        self.channel_names = []
-        self.offset = Vector3(0.0, 0.0, 0.0)
-        self.parent = None
-        self.children = set()
-        self.size = Vector3(0.0,0.0,0.0)
-
-    bone_name: str
-    channel_count: int
-    channel_names = list[str]
-    offset: Vector3
-    parent: Optional[str]
-    children: set[str]
-
-
-class FrameBone:
-    """Bone objects per frame as described at the end of the .bvh file.
-
-    Instance Attributes:
-      - bone_name: The name of the bone that FrameBone is based on.
-      - position: The position of the bone from the channels as described by the .bvh file.
-      - rotation: The rotation of the bone from the channels as described by the .bvh file.
-    """
-
-    def __init__(self, bone_name: str, position: Vector3, rotation: Quaternion) -> None:
-        self.bone_name = bone_name
-        self.position = position
-        self.rotation = rotation
-
-    bone_name: str  # the bone that FrameBone is based on.
-    position: Vector3
-    rotation: Quaternion
-
-
-class GlobalBone:
-    """Bones with global position and rotation.
-
-    Instance Attributes:
-      - name: Name of the bone.
-      - position: Position of the bone.
-      - rotation: Rotation of the bone.
-    """
-
-    def __init__(self, name: str, position: Vector3, rotation: Quaternion):
-        self.name = name
-        self.position = position
-        self.rotation = rotation
-
-    name: str
-    position: Vector3
-    rotation: Quaternion
-
-
-class Frame:
-    """A single frame containing all FrameBones for a specific armature.
-
-    Instance Attributes:
-      - frame_bones: A dictionary mapping the bone name to a FrameBone object.
-    """
-
-    def __init__(self) -> None:
-        self.frame_bones = {}
-
-    frame_bones: dict[str: FrameBone]
-
-
+#
+#
+# class GlobalBone:
+#     """Bones with global position and rotation.
+#
+#     Instance Attributes:
+#       - name: Name of the bone.
+#       - position: Position of the bone.
+#       - rotation: Rotation of the bone.
+#     """
+#
+#     def __init__(self, name: str, position: Vector3, rotation: Quaternion):
+#         self.name = name
+#         self.position = position
+#         self.rotation = rotation
+#
+#     name: str
+#     position: Vector3
+#     rotation: Quaternion
+#
+#
+# class Frame:
+#     """A single frame containing all FrameBones for a specific armature.
+#
+#     Instance Attributes:
+#       - frame_bones: A dictionary mapping the bone name to a FrameBone object.
+#     """
+#
+#     def __init__(self) -> None:
+#         self.frame_bones = {}
+#
+#     frame_bones: dict[str: FrameBone]
+#
+#
 class AecArmorStandPair:
     """A class describing an AEC-ArmorStand pair.
 
@@ -104,6 +89,8 @@ class AecArmorStandPair:
     #  - _update: Whether the Air NBT should be 0 or 1. Updating this value causes the AEC to change position.
 
     name: str
+    start: Bone
+    end: Bone
     aec_uuid: str
     stand_uuid: str
     size: Vector3
@@ -113,12 +100,15 @@ class AecArmorStandPair:
     _update: bool
     _seed_prefix: str
 
-    def __init__(self, seed_prefix: str, name: str,
+    def __init__(self, _seed_prefix: str, root_uuid: str, name: str, start_bone: Bone, end_bone: Bone,
                  item: str, size: Vector3, offset: Vector3, t_pose: Vector3, show_names: bool) -> None:
         self.name = name
-        self._seed_prefix = seed_prefix.replace('/', ',').replace(':', ',').replace(' ', '_')
+        self.start_bone = start_bone
+        self.end_bone = end_bone
+        self._seed_prefix = _seed_prefix.replace('/', ',').replace(':', ',').replace(' ', '_')
+        self.root_uuid = root_uuid
 
-        random.seed(seed_prefix + name)
+        random.seed(_seed_prefix + name)
         # noinspection PyTypeChecker
         self.aec_uuid = utility.uuid_ints_to_uuid_str(tuple(random.randint(-2 ** 31, 2 ** 31 - 1) for _ in range(4)))
         # noinspection PyTypeChecker
@@ -153,8 +143,7 @@ class AecArmorStandPair:
                     'item replace entity ' + self.stand_uuid + ' armor.head with ' + self.item]
         return commands
 
-    def return_transformation_command(self, position: Vector3, rotation: Quaternion, root_uuid: str,
-                                      fix_orientation: Quaternion) -> str:
+    def return_transformation_command(self, position: Vector3, rotation: Quaternion) -> list[str]:
         """Return commands as a single string that translate and rotate the AEC-ArmorStand pair
         to the specified position and rotation.
 
@@ -167,20 +156,114 @@ class AecArmorStandPair:
         else:
             q = Quaternion(0.0, 0.0, 0.0, 1.0)
         q.parent(rotation)
-        q.parent(fix_orientation)
 
-        commands = 'execute at ' + root_uuid + ' run tp ' + self.aec_uuid + ' ~' + ' ~'.join(
-            ('{:f}'.format(i) for i in position.rotated_by_quaternion(fix_orientation).to_tuple())) + '\n'
-        commands += 'data merge entity ' + self.aec_uuid + ' {Air: ' + str(int(self._update)) + '}\n'
+        commands = ['execute at ' + self.root_uuid + ' run tp ' + self.aec_uuid + ' ~' + ' ~'.join(
+            ('{:f}'.format(i) for i in position.to_tuple()))]
+        commands.append('data merge entity ' + self.aec_uuid + ' {Air: ' + str(int(self._update)) + '}')
 
         rot = list(Euler('zyx').set_from_quaternion(q).to_tuple())
 
         rot[1] *= -1
         rot[2] *= -1
 
-        commands += 'data merge entity ' + self.stand_uuid + ' {Pose:{Head:' + utility.tuple_to_m_list(tuple(rot),
-                                                                                                       'f') + '}}'
+        commands.append('data merge entity ' + self.stand_uuid + ' {Pose:{Head:' + utility.tuple_to_m_list(tuple(rot), 'f') + '}}')
 
         self._update = self._update is False
 
         return commands
+
+class Stage:
+    def __init__(self):
+        self.armatures = {}
+        self.max_ticks = 0
+
+    def update(self, armature_name, armature):
+        self.armatures[armature_name] = armature
+        self.max_ticks = max(self.max_ticks, len(armature.frames))
+
+
+
+
+class Bone:
+    def __init__(self, bone_name, parent, offset, channel_names):
+        self.bone_name = bone_name
+        self.parent = parent
+        self.offset = offset
+        self.channel_names = channel_names
+        self.children = []
+
+    def __repr__(self) -> str:
+        """Return a string representation of the Bone object for debugging purposes."""
+        return 'Bone Object: ' + self.bone_name
+
+    bone_name: str
+    parent: Bone
+    offset: Vector3
+    channel_names: list[str]
+    children: list[Bone]
+
+
+class FrameBone:
+    """Bone objects per frame as described at the end of the .bvh file.
+
+    Instance Attributes:
+      - bone_name: The name of the bone that FrameBone is based on.
+      - position: The position of the bone from the channels as described by the .bvh file.
+      - rotation: The rotation of the bone from the channels as described by the .bvh file.
+    """
+
+    def __init__(self, bone_name: str, bone: Bone, position: Vector3, rotation: Quaternion) -> None:
+        self.bone_name = bone_name
+        self.bone = bone
+        self.position = position
+        self.rotation = rotation
+
+    def __repr__(self) -> str:
+        """Return a string representation of the Bone object for debugging purposes."""
+        return 'Bone Object: ' + self.bone_name
+
+    bone_name: str  # the bone that FrameBone is based on.
+    bone: Bone  # the bone that FrameBone is based on.
+    position: Vector3
+    rotation: Optional[Quaternion]
+
+
+class Frame:
+    """A single frame containing all FrameBones for a specific armature.
+
+    Instance Attributes:
+      - frame_bones: A dictionary mapping the bone name to a FrameBone object.
+    """
+
+    def __init__(self) -> None:
+        self.frame_bones = {}
+
+    frame_bones: dict[str: FrameBone]
+
+
+class Armature:
+    def __init__(self):
+        self.bones = {}
+        self.frames = []
+
+    def add_bone(self, bone_name, parent_name, offset, channels):
+        assert bone_name not in self.bones, 'bruh'
+
+        if parent_name is None:
+            new_bone = Bone(bone_name, None, offset, channels)
+        else:
+            parent = self.bones[parent_name]
+            new_bone = Bone(bone_name, parent, offset, channels)
+            parent.children.append(new_bone)
+
+        self.bones[bone_name] = new_bone
+
+    def copy(self):
+        copy_armature = Armature
+        copy_armature.bones = self.bones.copy()
+        copy_armature.frames = self.frames.copy()
+        return copy_armature
+
+    bones: dict[str: Bone]
+    frames: list[Frame]
+
