@@ -53,9 +53,6 @@ class MainConverter:
             function_directory: A string of the function directory (absolute).
         """
         self.function_directory = function_directory
-        # self.bones = {}
-        # self._bone_list = []
-        # self.frames = []
         self._aec_stand_pairs = {}
         # self._global_offset_fix = None
         # self._commands_to_index = {}
@@ -219,93 +216,6 @@ class MainConverter:
                             self.current_armature.frames.append(new_frame)
                         frame += 1
 
-    # def globalize_frame_armature(self, function_name: str, frame: Frame, initial_frame_bone_name: str) -> \
-    #         dict[str, GlobalBone]:
-    #     """Loads a .bvh file.
-    #
-    #         function_name: Name of the Minecraft function (e.g. could be name of the character, armature_001, etc)
-    #         frame: A single Frame object used to create the armature.
-    #         initial_frame_bone_name: Name of the root bone (e.g. Root, PositionOffset, etc.)
-    #         Should be dependent on the .bvh file.
-    #     """
-    #     armorstand_bone_set = set(self._aec_stand_pairs[function_name].keys())
-    #     global positioned
-    #     positioned = False
-    #     fix_position = False
-    #     if self._global_offset_fix is None:
-    #         self._global_offset_fix = Vector3(0.0, 0.0, 0.0)
-    #         fix_position = True
-    #
-    #     def dfs(frame_bone: FrameBone, parent_pos: Vector3, parent_rot: Quaternion, fix_position: bool) -> None:
-    #         global positioned
-    #         # skip extra bones
-    #         if frame_bone.bone_name not in self._useful_bones:
-    #             return None
-    #
-    #         # Fix the new rotation
-    #         child_rot = frame_bone.rotation.copy()
-    #         child_rot.parent(parent_rot)
-    #
-    #         if positioned and frame_bone.bone_name not in armorstand_bone_set:
-    #             # go deeper into graph with parent stuff. i.e. ignore this bone's rotation and stuff
-    #             bone = self.bones[frame_bone.bone_name]
-    #             children = bone.children
-    #
-    #             for child in children:
-    #                 if child == 'Site':
-    #                     continue
-    #                 dfs(frame.frame_bones[child], parent_pos, parent_rot, fix_position)
-    #         else:
-    #             if frame_bone.bone_name in armorstand_bone_set:
-    #                 positioned = True
-    #
-    #                 # Rotate the bone by the parent
-    #                 this_aec_stand_pair = self._aec_stand_pairs[function_name][frame_bone.bone_name]
-    #                 bone_offset_vector = this_aec_stand_pair.offset.copy()
-    #                 bone_size_vector = this_aec_stand_pair.size.copy()
-    #                 t_pose_vector = this_aec_stand_pair.t_pose.copy()
-    #
-    #                 if bone_size_vector.magnitude() != 0 and t_pose_vector.magnitude() != 0:
-    #                     # account for bone size and t pose differences
-    #                     q = Quaternion().between_vectors(bone_size_vector, t_pose_vector)
-    #                     q.parent(child_rot)
-    #                     bone_size_vector.rotate_by_quaternion(q)
-    #             else:
-    #                 # Rotate the bone by the parent
-    #                 bone_offset_vector = frame_bone.position * self.scale
-    #                 if fix_position:
-    #                     self._global_offset_fix += bone_offset_vector
-    #                 bone_size_vector = Vector3(0.0, 0.0, 0.0)
-    #
-    #             if bone_offset_vector.magnitude() < 0.0001:
-    #                 bone_offset_vector = Vector3(0.0, 0.0, 0.0)
-    #             else:
-    #                 bone_offset_vector.rotate_by_quaternion(parent_rot)
-    #
-    #             child_pos = parent_pos + bone_offset_vector
-    #
-    #             # pack
-    #             frame_armature[frame_bone.bone_name] = GlobalBone(frame_bone.bone_name,
-    #                                                               child_pos, child_rot)
-    #
-    #             # recursion
-    #             bone = self.bones[frame_bone.bone_name]
-    #             children = bone.children
-    #
-    #             for child in children:
-    #                 if child == 'Site':
-    #                     continue
-    #                 dfs(frame.frame_bones[child], child_pos + bone_size_vector, child_rot, fix_position)
-    #
-    #     origin = Vector3(0, -1.25, 0)
-    #     origin_rot = Quaternion(0, 0, 0, 1)
-    #     frame_armature = {}
-    #
-    #     initial_frame_bone = frame.frame_bones[initial_frame_bone_name]
-    #     dfs(initial_frame_bone, origin, origin_rot, fix_position)
-    #
-    #     return frame_armature
-    #
     def globalize_frame_armature(self, frame: Frame, function_name: str, aec_stand_pairs: dict[str, AecArmorStandPair]) -> list[str]:
 
         def dfs(parent_frame_bone: FrameBone, parent_pos: Vector3, parent_rot: Quaternion) -> list[str]:
@@ -355,7 +265,7 @@ class MainConverter:
 
 
     def globalize_armature(self, function_name: str, root_uuid: str,
-                           stands: list[tuple[str, str, str,
+                           stands: list[tuple[str, str,
                                               Vector3,
                                               Vector3,
                                               Optional[Vector3]]], fill_in: bool = False, show_names: bool = False) -> None:
@@ -382,16 +292,22 @@ class MainConverter:
         self._useful_bones = set()
         stand_bone_names = set()
 
-        # for stand in stands:
-        #     if stand[4] is None:
-        #         self._aec_stand_pairs[function_name][stand[0]] = AecArmorStandPair(utility.get_function_directory(
-        #             self.function_directory, function_name),
-        #             root_uuid, stand[0], stand[1], stand[2],
-        #             stand[3], stand[4], self.bones[stand[0]].offset, show_names)
-        #     else:
-        #         self._aec_stand_pairs[function_name][stand[0]] = AecArmorStandPair(function_name,
-        #                                                                            root_uuid, *stand[0:6], show_names)
-        #     stand_bone_names.add(stand[0])
+        for stand in stands:
+            self._aec_stand_pairs[function_name][stand[0]] = AecArmorStandPair(utility.get_function_directory(
+                self.function_directory, function_name),
+                root_uuid,
+                stand[0],  # name
+                stand[1],  # item
+                self.current_armature.bones[stand[0]],  # start bone
+                self.current_armature.bones[stand[0]].children[0],  # end bone
+                stand[2],  # size
+                stand[3],  # offset
+                self.current_armature.bones[stand[0]].offset,  # t-pose
+                show_names
+            )
+            if stand[4] is not None:
+                self._aec_stand_pairs[function_name][stand[0]].t_pose = stand[4]
+            stand_bone_names.add(stand[0])
 
         aec_stand_pairs = {}
 
@@ -408,9 +324,9 @@ class MainConverter:
                     utility.get_function_directory(self.function_directory, function_name),
                     root_uuid,
                     stand_name,
+                    'end_rod',
                     start_bone,
                     end_bone,
-                    'end_rod',
                     Vector3(0.0, math.sqrt(2) / 2, math.sqrt(2) / 2) * end_bone.offset.magnitude() * self.scale,
                     start_bone.offset * self.scale,
                     end_bone.offset,
@@ -421,9 +337,9 @@ class MainConverter:
         def add_parents(bone_name: str) -> None:
             if bone_name not in self._useful_bones:
                 self._useful_bones.add(bone_name)
-                parent_bone = self.bones[bone_name].parent.bone_name
-                if parent_bone is not None:
-                    add_parents(parent_bone)
+                parent = self.current_armature.bones[bone_name].parent
+                if parent is not None:
+                    add_parents(parent.bone_name)
 
         for stand_bone_name in stand_bone_names:
             add_parents(stand_bone_name)
@@ -454,38 +370,6 @@ class MainConverter:
                 g.write(command + "\n")
 
         self.stage.update(function_name, self.current_armature)
-
-
-        # for i in range(0, len(self.frames), skip_frames):
-        #
-        #     # per tick file
-        #     frame = self.frames[i]
-        #     frame_armature = self.globalize_frame_armature(function_name, frame, initial_frame_bone_name)
-        #
-        #     commands = []
-        #
-        #     for stand_name in self._aec_stand_pairs[function_name]:
-        #         aec_stand_pair = self._aec_stand_pairs[function_name][stand_name]
-        #         global_bone = frame_armature[stand_name]
-        #
-        #         command = aec_stand_pair.return_transformation_command(global_bone.position - self._global_offset_fix,
-        #                                                                global_bone.rotation, root_uuid,
-        #                                                                self._fix_orientation)
-        #
-        #         commands.append(command)
-        #
-        #     command = '\n'.join(commands)
-        #
-        #     complete_path = os.path.join(self.function_directory, function_name, str(ticks) + ".mcfunction")
-        #     open(complete_path, 'w').close()
-        #     g = open(complete_path, "a")
-        #     g.write(command)
-        #     g.close()
-        #
-        #     ticks += 1
-        #
-        # if function_name not in self._commands_to_index or self._commands_to_index[function_name] > ticks - 1:
-        #     self._commands_to_index[function_name] = ticks - 1
 
     def reset_function(self) -> None:
         """Write commands to remove and summon necessary AEC-Stand pairs.

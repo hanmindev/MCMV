@@ -100,8 +100,8 @@ class AecArmorStandPair:
     _update: bool
     _seed_prefix: str
 
-    def __init__(self, _seed_prefix: str, root_uuid: str, name: str, start_bone: Bone, end_bone: Bone,
-                 item: str, size: Vector3, offset: Vector3, t_pose: Vector3, show_names: bool) -> None:
+    def __init__(self, _seed_prefix: str, root_uuid: str, name: str,
+                 item: str, start_bone: Bone, end_bone: Bone, size: Vector3, offset: Vector3, t_pose: Vector3, show_names: bool) -> None:
         self.name = name
         self.start_bone = start_bone
         self.end_bone = end_bone
