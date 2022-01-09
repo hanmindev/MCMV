@@ -226,76 +226,52 @@ class MainConverter:
             child_bones = parent_bone.children
 
             for child_bone in child_bones:
+                is_defined_bone = child_bone.bone_name in aec_stand_pairs
+                is_generated_bone = child_bone.bone_name not in original_end_bone_names
                 parent_frame_bone = frame.frame_bones[parent_bone.bone_name]
                 child_frame_bone = frame.frame_bones[child_bone.bone_name]
 
-                # this following offset is armor stand specific
-                try:
-                    bone_start_pos = parent_pos.copy() + aec_stand_pairs[
-                        parent_bone.bone_name].offset.copy().rotated_by_quaternion(parent_rot)
-                except KeyError:
+                bone_end_pos = parent_pos.copy()
+                if is_defined_bone:
                     bone_start_pos = parent_pos.copy()
-                try:
-                    bone_end_pos = bone_start_pos + child_frame_bone.position.rotated_by_quaternion(parent_rot)
-                except AttributeError:
-                    bone_end_pos = bone_start_pos.copy()
-                resulting_position = bone_start_pos.copy() * self.scale
-                resulting_rotation = parent_rot.copy()
+                    if is_generated_bone:
+                        try:
+                            bone_end_pos = bone_start_pos + child_frame_bone.position.rotated_by_quaternion(parent_rot) * self.scale
+                        except AttributeError:
+                            bone_end_pos = bone_start_pos.copy()
 
-                resulting_position.rotate_by_quaternion(self._fix_orientation)
-                resulting_rotation.parent(self._fix_orientation)
+                        # bone_start_pos *= self.scale
+                    else:
+                        # account for the model vector and t pose differences
 
-                commands += aec_stand_pairs[child_bone.bone_name].return_transformation_command(
-                    resulting_position,
-                    resulting_rotation)
+                        # these following offset is armor stand specific
+                        try:
+                            parent_aec_stand = aec_stand_pairs[parent_bone.bone_name]
+                            child_aec_stand = aec_stand_pairs[child_bone.bone_name]
+                            q_c = Quaternion().between_vectors(child_aec_stand.size, child_aec_stand.t_pose)
+
+                            q_c.parent(parent_rot)
+                            bone_start_pos += child_aec_stand.offset.copy().rotated_by_quaternion(q_c)
+                            bone_end_pos = bone_start_pos + child_aec_stand.size.copy().rotated_by_quaternion(q_c)
+
+                        except KeyError:
+                            bone_end_pos = bone_start_pos
+
+                    resulting_position = bone_start_pos.copy()
+                    resulting_rotation = parent_rot.copy()
+
+                    resulting_position.rotate_by_quaternion(self._fix_orientation)
+                    resulting_rotation.parent(self._fix_orientation)
+
+                    commands += aec_stand_pairs[child_bone.bone_name].return_transformation_command(
+                        resulting_position,
+                        resulting_rotation)
 
                 if child_frame_bone.bone_name[0:9] != 'End Site_':
                     child_rot = child_frame_bone.rotation.copy()
                     child_rot.parent(parent_rot)
 
                     commands += dfs(child_frame_bone, bone_end_pos, child_rot)
-
-
-            # for child_bone in child_bones:
-            #     is_defined_bone = child_bone.bone_name in aec_stand_pairs
-            #     is_generated_bone = child_bone.bone_name not in original_end_bone_names
-            #
-            #     # aec_stand_pairs[child_bone.bone_name]
-            #     child_frame_bone = frame.frame_bones[child_bone.bone_name]
-            #
-            #     if is_defined_bone:
-            #         if is_generated_bone:
-            #             child_offset = aec_stand_pairs[child_bone.bone_name].offset.copy()
-            #             child_pos = parent_pos + child_offset * self.scale
-            #
-            #             child_size = aec_stand_pairs[child_bone.bone_name].size.copy() * self.scale
-            #         else:
-            #             child_offset = aec_stand_pairs[child_bone.bone_name].offset.copy()
-            #             child_pos = parent_pos + child_offset
-            #
-            #             child_size = aec_stand_pairs[child_bone.bone_name].size.copy()
-            #
-            #         child_pos.rotate_by_quaternion(parent_rot)
-            #         child_size.rotate_by_quaternion(parent_rot)
-            #
-            #         resulting_position = child_pos.copy()
-            #         resulting_position.rotate_by_quaternion(self._fix_orientation)
-            #
-            #         resulting_rotation = parent_rot.copy()
-            #         resulting_rotation.parent(self._fix_orientation)
-            #         # resulting_position += position
-            #
-            #         commands += aec_stand_pairs[child_bone.bone_name].return_transformation_command(
-            #             resulting_position,
-            #             resulting_rotation)
-            #     else:
-            #         child_pos = parent_pos.copy()
-            #         child_size = Vector3(0.0, 0.0, 0.0)
-            #
-            #     if child_frame_bone.bone_name[0:9] != 'End Site_':
-            #         child_rot = child_frame_bone.rotation.copy()
-            #         child_rot.parent(parent_rot)
-            #         commands += dfs(child_frame_bone, child_pos + child_size, child_rot)
 
             return commands
 
