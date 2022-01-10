@@ -100,19 +100,15 @@ class AecArmorStandPair:
     _update: bool
     _seed_prefix: str
 
-    def __init__(self, _seed_prefix: str, root_uuid: str, name: str,
+    def __init__(self, seed_prefix: tuple[str, str], root_uuid: str, name: str,
                  item: str, start_bone: Bone, size: Vector3, offset: Vector3, end_bone: Bone, show_names: bool,
                  allow_rotation: bool) -> None:
         self.name = end_bone.bone_name
         self.start_bone = start_bone
-        self._seed_prefix = _seed_prefix.replace(' ', '_')
+        self._seed_prefix = utility.get_function_directory(*seed_prefix).replace(' ', '_')
         self.root_uuid = root_uuid
 
-        random.seed(_seed_prefix + self.name)
-        # noinspection PyTypeChecker
-        self.aec_uuid = utility.uuid_ints_to_uuid_str(tuple(random.randint(-2 ** 31, 2 ** 31 - 1) for _ in range(4)))
-        # noinspection PyTypeChecker
-        self.stand_uuid = utility.uuid_ints_to_uuid_str(tuple(random.randint(-2 ** 31, 2 ** 31 - 1) for _ in range(4)))
+        self.aec_uuid, self.stand_uuid = utility.get_joint_uuids(*seed_prefix, self.name)
 
         # vector of the bone
         self.size = size
@@ -208,11 +204,11 @@ class AecArmorStandPair:
 
 class Stage:
     def __init__(self):
-        self.armatures = {}
+        self.armatures = set()
         self.max_ticks = 0
 
     def update(self, armature_name, armature):
-        self.armatures[armature_name] = armature
+        self.armatures.add(armature_name)
         self.max_ticks = max(self.max_ticks, len(armature.frames))
 
 

@@ -125,7 +125,7 @@ class MainConverter:
 
                     elif words[0] == 'ROOT' or words[0] == 'JOINT' or words[0] == 'End':
                         if words[0] == 'End':
-                            bone_name = 'End Site_' + current_bone_data[1]
+                            bone_name = 'End Site_' + current_bone_data[0]
                         else:
                             bone_name = ' '.join(words[1:len(words)])
 
@@ -220,7 +220,6 @@ class MainConverter:
 
         def dfs(parent_frame_bone: FrameBone, parent_pos: Vector3, parent_rot: Quaternion,
                 grandparent_rot: Quaternion = Quaternion(0.0, 0.0, 0.0, 1.0), translate: bool = False) -> Vector3:
-            commands = []
             # recursion
             parent_bone = parent_frame_bone.bone
             child_bones = parent_bone.children
@@ -263,13 +262,13 @@ class MainConverter:
                     except AttributeError:
                         bone_end_pos += child_frame_bone.position * self.scale
 
+                if translate and parent_bone.bone_name == base:
+                    translate = False
+                    if self._global_offset_fix is None:
+                        return bone_end_pos
                 if child_frame_bone.bone_name[0:9] != 'End Site_':
                     child_rot = child_frame_bone.rotation.copy()
                     child_rot.parent(parent_rot)
-                    if translate and parent_bone.bone_name == base:
-                        translate = False
-                        if self._global_offset_fix is None:
-                            return bone_end_pos
                     return dfs(child_frame_bone, bone_end_pos, child_rot, parent_rot, translate=translate)
 
         initial_frame_bone = frame.frame_bones[self.current_armature.root_bone_name]
@@ -327,10 +326,11 @@ class MainConverter:
                     resulting_position -= self._global_offset_fix
                     resulting_position.rotate_by_quaternion(self._fix_orientation)
                     resulting_rotation.parent(self._fix_orientation)
-                    resulting_position += external_offset
 
                     resulting_rotation.parent(self._model_rotation)
                     resulting_position.rotate_by_quaternion(self._model_rotation)
+
+                    resulting_position += external_offset
 
                     commands += aec_stand_pairs[child_bone.bone_name].return_transformation_command(
                         resulting_position,
@@ -404,10 +404,10 @@ class MainConverter:
                 end_bone = self.current_armature.bones[stand[1]]
                 start_bone = self.current_armature.bones[stand[0]]
 
-            aec_stand_pairs[end_bone.bone_name] = AecArmorStandPair(utility.get_function_directory(
-                self.function_directory, function_name),
+            aec_stand_pairs[end_bone.bone_name] = AecArmorStandPair(
+                (self.function_directory, function_name),
                 uuid,
-                stand[1],  # end_bone name
+                end_bone.bone_name,  # end_bone name
                 stand[2],  # item
                 start_bone,  # start bone
                 stand[3],  # size
@@ -418,7 +418,7 @@ class MainConverter:
             )
             if type(stand[1]) is Vector3:
                 aec_stand_pairs[end_bone.bone_name].t_pose = stand[1]
-            original_end_bone_names.add(stand[1])
+            original_end_bone_names.add(end_bone.bone_name)
 
         if fill_in:
             for stand_name in set(self.current_armature.bones.keys()).difference(set(aec_stand_pairs.keys())):
@@ -429,7 +429,7 @@ class MainConverter:
                     continue
 
                 new_aec_stand_pair = AecArmorStandPair(
-                    utility.get_function_directory(self.function_directory, function_name),
+                    (self.function_directory, function_name),
                     uuid,
                     stand_name,
                     'end_rod',
@@ -558,6 +558,7 @@ class MainConverter:
                         resulting_position.rotate_by_quaternion(self._fix_orientation)
 
                         resulting_position += position
+                        resulting_position.rotate_by_quaternion(self._model_rotation)
 
                         xyz = ('{:f}'.format(j) for j in resulting_position)
 
@@ -570,6 +571,7 @@ class MainConverter:
                 resulting_position = child_pos * self.scale
                 resulting_position.rotate_by_quaternion(self._fix_orientation)
                 resulting_position += position
+                resulting_position.rotate_by_quaternion(self._model_rotation)
 
                 xyz = ('{:f}'.format(i) for i in resulting_position)
 
@@ -591,7 +593,7 @@ class MainConverter:
         return commands
 
     def create_debug_armature(self, function_name: str, offset: Vector3 = Vector3(0.0, 0.0, 0.0), uuid: str = None,
-                              show_names: bool = False) -> None:
+                              show_names: bool = False, rotate = Quaternion(0.0, 0.0, 0.0, 1.0)) -> None:
 
         try:
             os.mkdir(self.function_directory)
@@ -604,6 +606,7 @@ class MainConverter:
         self._global_offset_fix = None
 
         frames = self.current_armature.frames
+        self._model_rotation = rotate
 
         for ticks, frame in enumerate(frames):
             if ticks == 0:
