@@ -57,6 +57,7 @@ class MainConverter:
         self._global_offset_fix = Vector3(0.0, 0.0, 0.0)
         self._global_offset_addition = None
         self.scale = 1.0
+        self.debug_extra_scale = 10.0
         self._order = None
         self._root_bone = None
         self._fix_orientation = Quaternion(0.0, 0.0, 0.0, 1.0)
@@ -78,7 +79,7 @@ class MainConverter:
                   ' Are you sure this is the right directory?')
             sys.exit()
 
-    def load_file(self, file_path: str, scale: float, order: str = 'xyz', up: str = 'y') -> None:
+    def load_file(self, file_path: str, scale: float, order: str = 'xyz', up: str = 'y', max_frames: int=None) -> None:
         """Loads a .bvh file.
 
             file_path: A string of the location of the .bvh file (relative).
@@ -89,6 +90,7 @@ class MainConverter:
         # self._bone_list = []
         # self.frames = []
         self.scale = scale
+        self.debug_extra_scale = 10.0
         # self._global_offset_fix = None
         self._order = order
         # self._root_bone = None
@@ -175,6 +177,8 @@ class MainConverter:
                     elif len(words[0]) == 0:
                         pass
                     else:
+                        if max_frames is not None and frame > max_frames:
+                            break
                         if frame in include_frames:
                             index_start = 0
 
@@ -219,7 +223,7 @@ class MainConverter:
                                                  original_end_bone_names: set, base: str = None) -> Vector3:
 
         def dfs(parent_frame_bone: FrameBone, parent_pos: Vector3, parent_rot: Quaternion,
-                grandparent_rot: Quaternion = Quaternion(0.0, 0.0, 0.0, 1.0), translate: bool = False) -> Vector3:
+                last_stand_bone_rot: Quaternion = Quaternion(0.0, 0.0, 0.0, 1.0), translate: bool = False) -> Vector3:
             # recursion
             parent_bone = parent_frame_bone.bone
             child_bones = parent_bone.children
@@ -248,7 +252,7 @@ class MainConverter:
 
                             q.parent(parent_rot)
                             try:
-                                bone_start_pos += child_aec_stand.offset.copy().rotated_by_quaternion(grandparent_rot)
+                                bone_start_pos += child_aec_stand.offset.copy().rotated_by_quaternion(last_stand_bone_rot)
                             except KeyError:
                                 pass
                             bone_end_pos = bone_start_pos + child_aec_stand.size.copy().rotated_by_quaternion(q)
@@ -269,7 +273,9 @@ class MainConverter:
                 if child_frame_bone.bone_name[0:9] != 'End Site_':
                     child_rot = child_frame_bone.rotation.copy()
                     child_rot.parent(parent_rot)
-                    return dfs(child_frame_bone, bone_end_pos, child_rot, parent_rot, translate=translate)
+                    possible_global_offset = dfs(child_frame_bone, bone_end_pos, child_rot, parent_rot, translate=translate)
+                    if possible_global_offset is not None:
+                        return possible_global_offset
 
         initial_frame_bone = frame.frame_bones[self.current_armature.root_bone_name]
         # initial position + offset (defined by function) + shift vector to account for armor stand height
@@ -282,7 +288,7 @@ class MainConverter:
                                  offset: Vector3 = Vector3(0.0, 0.0, 0.0)) -> list[str]:
 
         def dfs(parent_frame_bone: FrameBone, parent_pos: Vector3, parent_rot: Quaternion,
-                grandparent_rot: Quaternion = Quaternion(0.0, 0.0, 0.0, 1.0), translate: bool = False) -> list[str]:
+                last_stand_bone_rot: Quaternion = Quaternion(0.0, 0.0, 0.0, 1.0), translate: bool = False) -> list[str]:
             commands = []
             # recursion
             parent_bone = parent_frame_bone.bone
@@ -311,10 +317,7 @@ class MainConverter:
                             q = Quaternion().between_vectors(child_aec_stand.size, child_aec_stand.t_pose)
 
                             q.parent(parent_rot)
-                            try:
-                                bone_start_pos += child_aec_stand.offset.copy().rotated_by_quaternion(grandparent_rot)
-                            except KeyError:
-                                pass
+                            bone_start_pos += child_aec_stand.offset.copy().rotated_by_quaternion(last_stand_bone_rot)
                             bone_end_pos = bone_start_pos + child_aec_stand.size.copy().rotated_by_quaternion(q)
 
                         except KeyError:
@@ -335,6 +338,8 @@ class MainConverter:
                     commands += aec_stand_pairs[child_bone.bone_name].return_transformation_command(
                         resulting_position,
                         resulting_rotation)
+
+                    last_stand_bone_rot = parent_rot.copy()
                 elif translate and child_frame_bone.bone_name[0:9] != 'End Site_':
                     try:
                         bone_end_pos += child_frame_bone.position.rotated_by_quaternion(parent_rot) * self.scale
@@ -346,7 +351,7 @@ class MainConverter:
                     child_rot.parent(parent_rot)
                     if translate and parent_bone.bone_name == base:
                         translate = False
-                    commands += dfs(child_frame_bone, bone_end_pos, child_rot, parent_rot, translate=translate)
+                    commands += dfs(child_frame_bone, bone_end_pos, child_rot, last_stand_bone_rot, translate=translate)
 
             return commands
 
@@ -545,7 +550,7 @@ class MainConverter:
 
                 child_pos_rel.rotate_by_quaternion(parent_rot)
 
-                real_length = (child_pos_rel.magnitude() * self.scale)
+                real_length = (child_pos_rel.magnitude() * self.scale) * self.debug_extra_scale
 
                 if real_length > 1.0:
 
@@ -553,7 +558,7 @@ class MainConverter:
 
                     # in between stone
                     for i in range(int(real_length)):
-                        resulting_position = parent_pos * self.scale + vector_step * (i + 1.0)
+                        resulting_position = parent_pos * self.scale * self.debug_extra_scale + vector_step * (i + 1.0)
 
                         resulting_position.rotate_by_quaternion(self._fix_orientation)
 
@@ -568,7 +573,7 @@ class MainConverter:
                                                                              'Name:"minecraft:stone"}}')
 
                 child_pos = parent_pos + child_pos_rel
-                resulting_position = child_pos * self.scale
+                resulting_position = child_pos * self.scale * self.debug_extra_scale
                 resulting_position.rotate_by_quaternion(self._fix_orientation)
                 resulting_position += position
                 resulting_position.rotate_by_quaternion(self._model_rotation)
@@ -610,7 +615,7 @@ class MainConverter:
 
         for ticks, frame in enumerate(frames):
             if ticks == 0:
-                self._global_offset_fix = frame.frame_bones[self.current_armature.root_bone_name].position * self.scale
+                self._global_offset_fix = frame.frame_bones[self.current_armature.root_bone_name].position * self.scale * self.debug_extra_scale
 
             # per function
 
