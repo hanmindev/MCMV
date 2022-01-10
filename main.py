@@ -60,6 +60,7 @@ class MainConverter:
         self._order = None
         self._root_bone = None
         self._fix_orientation = Quaternion(0.0, 0.0, 0.0, 1.0)
+        self._model_rotation = Quaternion(0.0, 0.0, 0.0, 1.0)
 
         self.current_armature = None
 
@@ -215,7 +216,7 @@ class MainConverter:
                         frame += 1
 
     def find_center_offset_global_frame_armature(self, frame: Frame, aec_stand_pairs: dict[str, AecArmorStandPair],
-                                 original_end_bone_names: set, base: str = None) -> Vector3:
+                                                 original_end_bone_names: set, base: str = None) -> Vector3:
 
         def dfs(parent_frame_bone: FrameBone, parent_pos: Vector3, parent_rot: Quaternion,
                 grandparent_rot: Quaternion = Quaternion(0.0, 0.0, 0.0, 1.0), translate: bool = False) -> Vector3:
@@ -273,12 +274,13 @@ class MainConverter:
 
         initial_frame_bone = frame.frame_bones[self.current_armature.root_bone_name]
         # initial position + offset (defined by function) + shift vector to account for armor stand height
-        origin = (initial_frame_bone.position.copy() * self.scale) + Vector3(0.0, -1.4, 0.0)
+        origin = (initial_frame_bone.position.copy() * self.scale)
         origin_rot = Quaternion(0, 0, 0, 1)
-        return dfs(initial_frame_bone, origin, origin_rot, translate=base is not None)
+        return dfs(initial_frame_bone, origin, origin_rot, translate=base is not None) + Vector3(0.0, -1.4, 0.0)
 
     def globalize_frame_armature(self, frame: Frame, aec_stand_pairs: dict[str, AecArmorStandPair],
-                                 original_end_bone_names: set, base: str = None, offset: Vector3 = Vector3(0.0, 0.0, 0.0)) -> list[str]:
+                                 original_end_bone_names: set, base: str = None,
+                                 offset: Vector3 = Vector3(0.0, 0.0, 0.0)) -> list[str]:
 
         def dfs(parent_frame_bone: FrameBone, parent_pos: Vector3, parent_rot: Quaternion,
                 grandparent_rot: Quaternion = Quaternion(0.0, 0.0, 0.0, 1.0), translate: bool = False) -> list[str]:
@@ -322,9 +324,13 @@ class MainConverter:
                     resulting_position = bone_start_pos.copy()
                     resulting_rotation = parent_rot.copy()
 
+                    resulting_position -= self._global_offset_fix
                     resulting_position.rotate_by_quaternion(self._fix_orientation)
                     resulting_rotation.parent(self._fix_orientation)
-                    resulting_position -= self._global_offset_fix
+                    resulting_position += external_offset
+
+                    resulting_rotation.parent(self._model_rotation)
+                    resulting_position.rotate_by_quaternion(self._model_rotation)
 
                     commands += aec_stand_pairs[child_bone.bone_name].return_transformation_command(
                         resulting_position,
@@ -346,20 +352,22 @@ class MainConverter:
 
         initial_frame_bone = frame.frame_bones[self.current_armature.root_bone_name]
         # initial position + offset (defined by function) + shift vector to account for armor stand height
-        origin = (initial_frame_bone.position.copy() * self.scale) + offset + Vector3(0.0, -1.4, 0.0)
+        external_offset = offset + Vector3(0.0, -1.4, 0.0)
+        origin = (initial_frame_bone.position.copy() * self.scale)
         origin_rot = Quaternion(0, 0, 0, 1)
         return dfs(initial_frame_bone, origin, origin_rot, translate=base is not None)
 
-    def globalize_armature(self, function_name: str, root_uuid: str,
-                           stands: list[tuple[str, str,
+    def globalize_armature(self, function_name: str,
+                           stands: list[tuple[Optional[str], Optional[Union[Vector3, str]], str,
                                               Vector3,
-                                              Vector3,
-                                              Optional[Union[Vector3, str]]]], fill_in: bool = False,
-                           show_names: bool = False, base: str = None, center: bool = True, offset: Vector3 = Vector3(0.0, 0.0, 0.0)) -> None:
+                                              Vector3
+                                        ]], fill_in: bool = False,
+                           show_names: bool = False, base: str = None, center: bool = True, uuid: str = None,
+                           offset: Vector3 = Vector3(0.0, 0.0, 0.0), rotate = Quaternion(0.0, 0.0, 0.0, 1.0), allow_rotation=False) -> None:
         """Loads a .bvh file.
 
             function_name: Name of the Minecraft function (e.g. could be name of the character, armature_001, etc)
-            root_uuid: UUID of the root entity that the armature is positioned at.
+            uuid: UUID of the root entity that the armature is positioned at.
             (e.g. 54e5e739-9221-45fc-a06f-b5326d174cf7)
             stands: A list of tuples containing information for an AEC-ArmorStand Pair:
                 Name of the bone (Should be the same name used in the .bvh file.)
@@ -377,26 +385,40 @@ class MainConverter:
         self._aec_stand_pairs[function_name] = {}
 
         self._useful_bones = set()
+        self._model_rotation = rotate
         original_end_bone_names = set()
 
         aec_stand_pairs = {}
 
         for stand in stands:
-            start_bone = self.current_armature.bones[stand[0]]
-            end_bone = self.current_armature.bones[stand[4]]
+            if stand[0] is None and stand[1] is None:
+                assert 'At least one of the bone\'s joint names must be defined!'
+
+            if stand[0] is None:
+                end_bone = self.current_armature.bones[stand[1]]
+                start_bone = self.current_armature.bones[stand[1]].parent
+            elif stand[1] is None or type(stand[1]) is Vector3:
+                end_bone = self.current_armature.bones[stand[0]].children[0]
+                start_bone = self.current_armature.bones[stand[0]]
+            else:
+                end_bone = self.current_armature.bones[stand[1]]
+                start_bone = self.current_armature.bones[stand[0]]
 
             aec_stand_pairs[end_bone.bone_name] = AecArmorStandPair(utility.get_function_directory(
                 self.function_directory, function_name),
-                root_uuid,
-                stand[0],  # name
-                stand[1],  # item
+                uuid,
+                stand[1],  # end_bone name
+                stand[2],  # item
                 start_bone,  # start bone
-                stand[2],  # size
-                stand[3],  # offset
+                stand[3],  # size
+                stand[4],  # offset
                 end_bone,  # t-pose helper
-                show_names
+                show_names,
+                allow_rotation
             )
-            original_end_bone_names.add(stand[4])
+            if type(stand[1]) is Vector3:
+                aec_stand_pairs[end_bone.bone_name].t_pose = stand[1]
+            original_end_bone_names.add(stand[1])
 
         if fill_in:
             for stand_name in set(self.current_armature.bones.keys()).difference(set(aec_stand_pairs.keys())):
@@ -408,14 +430,15 @@ class MainConverter:
 
                 new_aec_stand_pair = AecArmorStandPair(
                     utility.get_function_directory(self.function_directory, function_name),
-                    root_uuid,
+                    uuid,
                     stand_name,
                     'end_rod',
                     start_bone,
                     Vector3(0.0, math.sqrt(2) / 2, math.sqrt(2) / 2) * end_bone.offset.magnitude(),
                     Vector3(0.0, 0.0, 0.0),
                     end_bone,
-                    show_names
+                    show_names,
+                    allow_rotation
                 )
                 aec_stand_pairs[end_bone.bone_name] = new_aec_stand_pair
 
@@ -445,7 +468,8 @@ class MainConverter:
             if ticks == 0:
                 if base is not None and center:
                     self._global_offset_fix = self.find_center_offset_global_frame_armature(frame, aec_stand_pairs,
-                                                                                     original_end_bone_names, base)
+                                                                                            original_end_bone_names,
+                                                                                            base)
                 else:
                     self._global_offset_fix = Vector3(0.0, 0.0, 0.0)
 
@@ -467,19 +491,40 @@ class MainConverter:
         """
         complete_path = os.path.join(self.function_directory, 'reset' + ".mcfunction")
         f = open(complete_path, "a")
+        try:
+            tags = next(iter(next(iter(self._aec_stand_pairs.values())).values())).common_tags.copy()
+            commands = ['kill @e[tag=' + ',tag='.join(tags) + ']']
 
-        tags = {'armature_stands', *utility.get_function_directory(
-            self.function_directory, None).replace('/', ',').replace(':', ',').replace(' ', '_').split(',')}
-
-        commands = ['kill @e[tag=' + ',tag='.join(tags) + ']']
-        for function_name in self._aec_stand_pairs:
-            for aec_stand_pair in self._aec_stand_pairs[function_name]:
-                commands += self._aec_stand_pairs[function_name][aec_stand_pair].return_reset_commands()
-            f.write('\n'.join(commands) + '\n')
+            for function_name in self._aec_stand_pairs:
+                for aec_stand_pair in self._aec_stand_pairs[function_name]:
+                    commands += self._aec_stand_pairs[function_name][aec_stand_pair].return_reset_commands()
+                f.write('\n'.join(commands) + '\n')
+        except StopIteration:
+            f.write('tellraw @a [{"text":"[Debug] ","color":"red"},{"text":"There aren\'t any bones in '
+                    'this Armature!","color":"white"}]')
         f.close()
 
-    def debug_armature_construction(self, frame: Frame, position: Vector3, function_name: str, show_names: bool):
+    def remove_function(self) -> None:
+        """Write commands to remove necessary AEC-Stand pairs."""
+        complete_path = os.path.join(self.function_directory, 'remove' + ".mcfunction")
+
+        f = open(complete_path, "a")
+        try:
+            tags = next(iter(next(iter(self._aec_stand_pairs.values())).values())).common_tags.copy()
+            f.write('kill @e[tag=' + ',tag='.join(tags) + ']')
+        except StopIteration:
+            f.write('tellraw @a [{"text":"[Debug] ","color":"red"},{"text":"There aren\'t any bones in '
+                    'this Armature!","color":"white"}]')
+        f.close()
+
+    def debug_armature_construction(self, frame: Frame, position: Vector3, function_name: str, show_names: bool,
+                                    uuid: str = None):
         commands = ['kill @e[type=falling_block,tag=armature_sand,tag=' + function_name + ']']
+
+        if uuid is None:
+            pre_command = 'summon minecraft:falling_block {} {} {} '
+        else:
+            pre_command = 'execute at ' + uuid + ' run summon minecraft:falling_block ^{} ^{} ^{} '
 
         def dfs(parent_frame_bone: FrameBone, parent_pos: Vector3, parent_rot: Quaternion) -> None:
 
@@ -517,7 +562,7 @@ class MainConverter:
                         xyz = ('{:f}'.format(j) for j in resulting_position)
 
                         commands.append(
-                            'summon minecraft:falling_block ' + ' '.join(xyz) +
+                            pre_command.format(*xyz) +
                             ' {Tags:[\'armature_sand\',\'' + function_name + '\'],NoGravity:true,BlockState:{'
                                                                              'Name:"minecraft:stone"}}')
 
@@ -530,7 +575,7 @@ class MainConverter:
 
                 # node
                 commands.append(
-                    'summon minecraft:falling_block ' + ' '.join(xyz) +
+                    pre_command.format(*xyz) +
                     ' {Tags:[\'armature_sand\',\'' + function_name + '\'],NoGravity:true,BlockState:{'
                                                                      'Name:"minecraft:diamond_block"},'
                                                                      'CustomNameVisible: ' + str(1) * show_names +
@@ -545,7 +590,8 @@ class MainConverter:
         dfs(initial_frame_bone, origin, origin_rot)
         return commands
 
-    def create_debug_armature(self, function_name: str, position: Vector3, show_names: bool = False) -> None:
+    def create_debug_armature(self, function_name: str, offset: Vector3 = Vector3(0.0, 0.0, 0.0), uuid: str = None,
+                              show_names: bool = False) -> None:
 
         try:
             os.mkdir(self.function_directory)
@@ -569,8 +615,8 @@ class MainConverter:
             open(complete_path, 'w').close()
             g = open(complete_path, "a")
 
-            for command in self.debug_armature_construction(frame, position - self._global_offset_fix, function_name,
-                                                            show_names):
+            for command in self.debug_armature_construction(frame, offset - self._global_offset_fix, function_name,
+                                                            show_names, uuid):
                 g.write(command + "\n")
 
         self.stage.update(function_name, self.current_armature)

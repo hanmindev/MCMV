@@ -101,10 +101,11 @@ class AecArmorStandPair:
     _seed_prefix: str
 
     def __init__(self, _seed_prefix: str, root_uuid: str, name: str,
-                 item: str, start_bone: Bone, size: Vector3, offset: Vector3, end_bone: Bone, show_names: bool) -> None:
+                 item: str, start_bone: Bone, size: Vector3, offset: Vector3, end_bone: Bone, show_names: bool,
+                 allow_rotation: bool) -> None:
         self.name = end_bone.bone_name
         self.start_bone = start_bone
-        self._seed_prefix = _seed_prefix.replace('/', ',').replace(':', ',').replace(' ', '_')
+        self._seed_prefix = _seed_prefix.replace(' ', '_')
         self.root_uuid = root_uuid
 
         random.seed(_seed_prefix + self.name)
@@ -124,6 +125,12 @@ class AecArmorStandPair:
         self.item = item
         self.show_names = show_names
 
+        self.allow_rotation = allow_rotation
+
+        tag = self._seed_prefix.split('/')
+        self.common_tags = {'armature_stands', 'path_' + tag[0].replace(':', '_'),
+                            'path_' + self._seed_prefix.replace(':', '_').replace('/', '_')}
+
         self._update = True
 
     def __repr__(self) -> str:
@@ -132,7 +139,9 @@ class AecArmorStandPair:
 
     def return_reset_commands(self) -> list[str]:
         """Return a list of commands to reset the AEC-Stand pair."""
-        tags = {'armature_stands', *self._seed_prefix.split(','), self.name.replace(' ', '_')}
+
+        tags = self.common_tags.copy()
+        tags.add('bn_' + self.name.replace(' ', '_'))
 
         commands = ['kill ' + self.aec_uuid,
                     'kill ' + self.stand_uuid,
@@ -146,6 +155,10 @@ class AecArmorStandPair:
                                                'CustomName: \'{"text": "'
                                                '' + self.name + '"}\' }]}',
                     'item replace entity ' + self.stand_uuid + ' armor.head with ' + self.item]
+
+        if self.root_uuid is not None:
+            commands.append(
+                'execute at ' + self.stand_uuid + ' rotated as ' + self.root_uuid + ' run tp ' + self.stand_uuid + ' ~ ~ ~ ~ ~')
         return commands
 
     def return_transformation_command(self, position: Vector3, rotation: Quaternion) -> list[str]:
@@ -162,8 +175,22 @@ class AecArmorStandPair:
             q = Quaternion(0.0, 0.0, 0.0, 1.0)
         q.parent(rotation)
 
-        commands = ['execute at ' + self.root_uuid + ' run tp ' + self.aec_uuid + ' ~' + ' ~'.join(
-            ('{:f}'.format(i) for i in position.to_tuple()))]
+        if self.root_uuid is None:
+            commands = [
+                'tp ' + self.aec_uuid + ' {} {} {}'.format(
+                    *('{:f}'.format(i) for i in position.to_tuple()))
+            ]
+        else:
+            commands = [
+                'execute at ' + self.root_uuid + ' run tp ' + self.aec_uuid + ' ^{} ^{} ^{}'.format(
+                    *('{:f}'.format(i) for i in position.to_tuple())) + ' ~ ~'
+            ]
+            if self.allow_rotation:
+                commands.append(
+                    'execute at ' + self.stand_uuid + ' rotated as ' + self.
+                    root_uuid + ' run tp ' + self.stand_uuid + ' ~ ~ ~ ~ ~'
+                )
+
         commands.append('data merge entity ' + self.aec_uuid + ' {Air: ' + str(int(self._update)) + '}')
 
         rot = list(Euler('zyx').set_from_quaternion(q).to_tuple())
@@ -171,11 +198,13 @@ class AecArmorStandPair:
         rot[1] *= -1
         rot[2] *= -1
 
-        commands.append('data merge entity ' + self.stand_uuid + ' {Pose:{Head:' + utility.tuple_to_m_list(tuple(rot), 'f') + '}}')
+        commands.append(
+            'data merge entity ' + self.stand_uuid + ' {Pose:{Head:' + utility.tuple_to_m_list(tuple(rot), 'f') + '}}')
 
         self._update = self._update is False
 
         return commands
+
 
 class Stage:
     def __init__(self):
@@ -185,8 +214,6 @@ class Stage:
     def update(self, armature_name, armature):
         self.armatures[armature_name] = armature
         self.max_ticks = max(self.max_ticks, len(armature.frames))
-
-
 
 
 class Bone:
@@ -271,4 +298,3 @@ class Armature:
 
     bones: dict[str: Bone]
     frames: list[Frame]
-
