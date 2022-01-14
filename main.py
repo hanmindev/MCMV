@@ -223,11 +223,7 @@ class MainConverter:
                                     y_rot = channel_mapper['Yrotation']
                                     z_rot = channel_mapper['Zrotation']
                                     rotation = Quaternion().set_from_euler(Euler(self._order, x_rot, y_rot, z_rot))
-                                    # if index_start == 0:
-                                    #     rotation.parent(face_north)
-                                    # rotation.parent(face_north)
 
-                                    # rotation.y, rotation.z = -rotation.z, rotation.y
 
                                     rotation.x, rotation.y = rot_matrix_z(rotation.x, rotation.y)
                                     rotation.x, rotation.z = rot_matrix_y(rotation.x, rotation.z)
@@ -244,85 +240,13 @@ class MainConverter:
 
     def find_center_offset_global_frame_armature(self, frame: Frame, aec_stand_pairs: dict[str, AecArmorStandPair],
                                                  original_end_bone_names: set, base: str = None) -> Vector3:
-
-        def dfs(parent_frame_bone: FrameBone, parent_pos: Vector3, parent_rot: Quaternion,
-                last_stand_bone_rot: Quaternion = Quaternion(0.0, 0.0, 0.0, 1.0), translate: bool = False) -> Vector3:
-            # recursion
-            parent_bone = parent_frame_bone.bone
-            child_bones = parent_bone.children
-
-            for child_bone in child_bones:
-                is_defined_bone = child_bone.bone_name in aec_stand_pairs
-                is_generated_bone = child_bone.bone_name not in original_end_bone_names
-                child_frame_bone = frame.frame_bones[child_bone.bone_name]
-
-                bone_end_pos = parent_pos.copy()
-                if is_defined_bone:
-                    bone_start_pos = parent_pos.copy()
-                    if is_generated_bone:
-                        try:
-                            bone_end_pos = bone_start_pos + child_frame_bone.position.rotated_by_quaternion(
-                                parent_rot) * self.scale
-                        except AttributeError:
-                            bone_end_pos = bone_start_pos.copy()
-                    else:
-                        # account for the model vector and t pose differences
-
-                        # these following offset is armor stand specific
-                        try:
-                            child_aec_stand = aec_stand_pairs[child_bone.bone_name]
-                            q = Quaternion().between_vectors(child_aec_stand.size, child_aec_stand.t_pose)
-
-                            q.parent(parent_rot)
-                            try:
-                                bone_start_pos += child_aec_stand.offset.copy().rotated_by_quaternion(
-                                    last_stand_bone_rot)
-                            except KeyError:
-                                pass
-                            bone_end_pos = bone_start_pos + child_aec_stand.size.copy().rotated_by_quaternion(q)
-
-                        except KeyError:
-                            bone_end_pos = bone_start_pos
-
-                elif translate and child_frame_bone.bone_name[0:9] != 'End Site_':
-                    try:
-                        bone_end_pos += child_frame_bone.position.rotated_by_quaternion(parent_rot) * self.scale
-                    except AttributeError:
-                        bone_end_pos += child_frame_bone.position * self.scale
-
-                if translate and parent_bone.bone_name == base:
-                    translate = False
-                    if self._global_offset_fix is None:
-                        return bone_end_pos
-                if child_frame_bone.bone_name[0:9] != 'End Site_':
-                    child_rot = child_frame_bone.rotation.copy()
-                    child_rot.parent(parent_rot)
-                    possible_global_offset = dfs(child_frame_bone, bone_end_pos, child_rot, parent_rot,
-                                                 translate=translate)
-                    if possible_global_offset is not None:
-                        return possible_global_offset
-
-        initial_frame_bone = frame.frame_bones[self.current_armature.root_bone_name]
-        # initial position + offset (defined by function) + shift vector to account for armor stand height
-        origin = (initial_frame_bone.position.copy() * self.scale)
-        origin_rot = Quaternion(0, 0, 0, 1)
-        return dfs(initial_frame_bone, origin, origin_rot, translate=base is not None) + Vector3(0.0, -1.4, 0.0)
-
-    def globalize_frame_armature(self, frame: Frame, aec_stand_pairs: dict[str, AecArmorStandPair],
-                                 original_end_bone_names: set, base: str = None,
-                                 offset: Vector3 = Vector3(0.0, 0.0, 0.0)) -> list[str]:
-
         def dfs(parent_frame_bone: FrameBone, parent_pos: Vector3, parent_rot: Quaternion,
                 grandparent_rot: Quaternion = None,
                 last_stand_bone_rot: Quaternion = None, last_stand: AecArmorStandPair = None,
-                translate: bool = False) -> list[str]:
-            commands = []
+                translate: bool = False) -> Vector3:
             # recursion
             parent_bone = parent_frame_bone.bone
             child_bones = parent_bone.children
-
-            if parent_frame_bone.bone_name == 'thigh_r_F_MED_NeonCat_Body_T_03.ao':
-                print('here')
 
             for child_bone in child_bones:
                 is_defined_bone = child_bone.bone_name in aec_stand_pairs
@@ -358,8 +282,83 @@ class MainConverter:
 
                         offset_finalized = child_aec_stand.offset.copy().rotated_by_quaternion(q_3)
 
+                        bone_start_pos += offset_finalized
+
+                        bone_end_pos = bone_start_pos + child_aec_stand.size.copy().rotated_by_quaternion(q)
+
+                        last_stand_bone_rot = parent_rot.copy()
+                        last_stand = child_aec_stand
+
+                elif translate and child_frame_bone.bone_name[0:9] != 'End Site_':
+                    try:
+                        bone_end_pos += child_frame_bone.position.rotated_by_quaternion(parent_rot) * self.scale
+                    except AttributeError:
+                        bone_end_pos += child_frame_bone.position * self.scale
+
+                if translate and parent_bone.bone_name == base:
+                    translate = False
+                    if self._global_offset_fix is None:
+                        return bone_end_pos
+                if child_frame_bone.bone_name[0:9] != 'End Site_':
+                    child_rot = child_frame_bone.rotation.copy()
+                    child_rot.parent(parent_rot)
+                    possible_global_offset = dfs(child_frame_bone, bone_end_pos, child_rot, parent_rot, last_stand_bone_rot,
+                                    last_stand, translate=translate)
+                    if possible_global_offset is not None:
+                        return possible_global_offset
+
+        initial_frame_bone = frame.frame_bones[self.current_armature.root_bone_name]
+        # initial position + offset (defined by function) + shift vector to account for armor stand height
+        origin = (initial_frame_bone.position.copy() * self.scale)
+        origin_rot = initial_frame_bone.rotation.copy()
+        return dfs(initial_frame_bone, origin, origin_rot, translate=base is not None) + Vector3(0.0, -1.4, 0.0)
+
+    def globalize_frame_armature(self, frame: Frame, aec_stand_pairs: dict[str, AecArmorStandPair],
+                                 original_end_bone_names: set, base: str = None,
+                                 offset: Vector3 = Vector3(0.0, 0.0, 0.0)) -> list[str]:
+
+        def dfs(parent_frame_bone: FrameBone, parent_pos: Vector3, parent_rot: Quaternion,
+                grandparent_rot: Quaternion = None,
+                last_stand_bone_rot: Quaternion = None, last_stand: AecArmorStandPair = None,
+                translate: bool = False) -> list[str]:
+            commands = []
+            # recursion
+            parent_bone = parent_frame_bone.bone
+            child_bones = parent_bone.children
+
+            for child_bone in child_bones:
+                is_defined_bone = child_bone.bone_name in aec_stand_pairs
+                is_generated_bone = child_bone.bone_name not in original_end_bone_names
+                child_frame_bone = frame.frame_bones[child_bone.bone_name]
+
+                bone_end_pos = parent_pos.copy()
+                if is_defined_bone:
+                    bone_start_pos = parent_pos.copy()
+                    if is_generated_bone:
+                        try:
+                            bone_end_pos = bone_start_pos + child_frame_bone.position.rotated_by_quaternion(
+                                parent_rot) * self.scale
+                        except AttributeError:
+                            bone_end_pos = bone_start_pos.copy()
+                    else:
+                        # account for the model vector and t pose differences
+
+                        # these following offset is armor stand specific
+                        child_aec_stand = aec_stand_pairs[child_bone.bone_name]
+                        q = child_aec_stand.q_size_to_t_pose_tilt_strip.copy()
+
+                        q.parent(parent_rot)
                         if last_stand is not None:
-                            offset_finalized.rotate_by_quaternion(self._model_rotation.conjugate())
+
+                            q_2 = last_stand_bone_rot.copy()
+
+                            q_3 = last_stand.q_size_to_t_pose_tilt_strip.copy()
+                            q_3.parent(q_2)
+
+                        else:
+                            q_3 = grandparent_rot.copy()
+
+                        offset_finalized = child_aec_stand.offset.copy().rotated_by_quaternion(q_3)
 
                         bone_start_pos += offset_finalized
 
