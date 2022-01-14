@@ -117,6 +117,13 @@ class AecArmorStandPair:
         self.end_bone = end_bone
         self.t_pose = end_bone.offset
 
+        if self.size.magnitude() != 0 and self.t_pose.magnitude() != 0:
+            q_size_to_t_pose = Quaternion().between_vectors(self.size, self.t_pose)
+            self.q_size_to_t_pose_tilt_strip = q_size_to_t_pose
+        else:
+            self.q_size_to_t_pose_tilt_strip = Quaternion(0.0, 0.0, 0.0, 1.0)
+
+
         # name of the item to hold
         self.item = item
         self.show_names = show_names
@@ -165,10 +172,14 @@ class AecArmorStandPair:
           - rotation: The rotation of the armor_stand
           - root_uuid: The UUID of the entity that the AEC-ArmorStand pair is positioned relative to.
         """
-        if self.size.magnitude() != 0 and self.t_pose.magnitude() != 0:
-            q = Quaternion().between_vectors(self.size, self.t_pose)
-        else:
-            q = Quaternion(0.0, 0.0, 0.0, 1.0)
+        # if self.size.magnitude() != 0 and self.t_pose.magnitude() != 0:
+        #     q = Quaternion().between_vectors(self.size, self.t_pose)
+        # else:
+        #     q = Quaternion(0.0, 0.0, 0.0, 1.0)
+
+        q=self.q_size_to_t_pose_tilt_strip.copy()
+        # q=Quaternion(0.0, 0.0, 0.0, 1.0)
+
         q.parent(rotation)
 
         if self.root_uuid is None:

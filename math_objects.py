@@ -241,6 +241,9 @@ class Quaternion:
         w = self.w / length
         return Quaternion(x, y, z, w)
 
+    def conjugate(self) -> Quaternion:
+        return Quaternion(-1 * self.x, -1 * self.y, -1 * self.z, self.w)
+
     def between_vectors(self, v_1: Vector3, v_2: Vector3) -> Quaternion:
         """Set the quaternion as the shortest rotation from v_1 to v_2.
             v_1: A Vector3 object

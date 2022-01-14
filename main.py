@@ -79,7 +79,8 @@ class MainConverter:
                   ' Are you sure this is the right directory?')
             sys.exit()
 
-    def load_file(self, file_path: str, scale: float, order: str = 'xyz', up: str = 'y', max_frames: int=None) -> None:
+    def load_file(self, file_path: str, scale: float, order: str = 'xyz', up: str = 'y',
+                  max_frames: int = None, face_north: Quaternion=Quaternion(0.0, 0.0, 0.0, 1.0)) -> None:
         """Loads a .bvh file.
 
             file_path: A string of the location of the .bvh file (relative).
@@ -90,25 +91,36 @@ class MainConverter:
         # self._bone_list = []
         # self.frames = []
         self.scale = scale
-        self.debug_extra_scale = 10.0
+        self.debug_extra_scale = 2.0
         # self._global_offset_fix = None
         self._order = order
         # self._root_bone = None
         self._fix_orientation = Quaternion(0.0, 0.0, 0.0, 1.0)
 
-        unit_vectors = {
-            'x': Vector3(1.0, 0.0, 0.0),
-            'y': Vector3(0.0, 1.0, 0.0),
-            'z': Vector3(0.0, 0.0, 1.0),
-            '-x': Vector3(-1.0, 0.0, 0.0),
-            '-y': Vector3(0.0, -1.0, 0.0),
-            '-z': Vector3(0.0, 0.0, -1.0)
-        }
+        face_north_euler = Euler('xyz').set_from_quaternion(face_north)
 
-        if up != 'y':
-            rotate_from = unit_vectors[up].copy()
-            rotate_to = Vector3(0.0, 1.0, 0.0)
-            self._fix_orientation = Quaternion().between_vectors(rotate_from, rotate_to)
+        angle_x = math.radians(face_north_euler.x)
+        angle_y = math.radians(face_north_euler.y)
+        angle_z = math.radians(face_north_euler.z)
+
+        rot_matrix_x = lambda y, z: (y*math.cos(angle_x) - z*math.sin(angle_x), z*math.cos(angle_x) + y*math.sin(angle_x))
+        rot_matrix_y = lambda x, z: (x*math.cos(angle_y) + z*math.sin(angle_y), z*math.cos(angle_y) - x*math.sin(angle_y))
+        rot_matrix_z = lambda x, y: (x*math.cos(angle_z) - y*math.sin(angle_z), y*math.cos(angle_z) + x*math.sin(angle_z))
+
+
+        # unit_vectors = {
+        #     'x': Vector3(1.0, 0.0, 0.0),
+        #     'y': Vector3(0.0, 1.0, 0.0),
+        #     'z': Vector3(0.0, 0.0, 1.0),
+        #     '-x': Vector3(-1.0, 0.0, 0.0),
+        #     '-y': Vector3(0.0, -1.0, 0.0),
+        #     '-z': Vector3(0.0, 0.0, -1.0)
+        # }
+        #
+        # if up != 'y':
+        #     rotate_from = unit_vectors[up].copy()
+        #     rotate_to = Vector3(0.0, 1.0, 0.0)
+        #     self._fix_orientation = Quaternion().between_vectors(rotate_from, rotate_to)
 
         with open(file_path, encoding='utf-8') as file:
             self.current_armature = Armature()
@@ -152,6 +164,7 @@ class MainConverter:
 
                     elif words[0] == 'OFFSET':
                         offset = Vector3(*map(float, words[1: 4]))
+                        offset.rotate_by_quaternion(face_north)
                         current_bone_data[2] = offset
 
                     elif words[0] == 'CHANNELS':
@@ -201,6 +214,7 @@ class MainConverter:
                                     y_pos = channel_mapper['Yposition']
                                     z_pos = channel_mapper['Zposition']
                                     position = Vector3(x_pos, y_pos, z_pos)
+                                    position.rotate_by_quaternion(face_north)
                                 except KeyError:
                                     position = None
 
@@ -209,6 +223,15 @@ class MainConverter:
                                     y_rot = channel_mapper['Yrotation']
                                     z_rot = channel_mapper['Zrotation']
                                     rotation = Quaternion().set_from_euler(Euler(self._order, x_rot, y_rot, z_rot))
+                                    # if index_start == 0:
+                                    #     rotation.parent(face_north)
+                                    # rotation.parent(face_north)
+
+                                    # rotation.y, rotation.z = -rotation.z, rotation.y
+
+                                    rotation.x, rotation.y = rot_matrix_z(rotation.x, rotation.y)
+                                    rotation.x, rotation.z = rot_matrix_y(rotation.x, rotation.z)
+                                    rotation.y, rotation.z = rot_matrix_x(rotation.y, rotation.z)
                                 except KeyError:
                                     rotation = None
 
@@ -252,7 +275,8 @@ class MainConverter:
 
                             q.parent(parent_rot)
                             try:
-                                bone_start_pos += child_aec_stand.offset.copy().rotated_by_quaternion(last_stand_bone_rot)
+                                bone_start_pos += child_aec_stand.offset.copy().rotated_by_quaternion(
+                                    last_stand_bone_rot)
                             except KeyError:
                                 pass
                             bone_end_pos = bone_start_pos + child_aec_stand.size.copy().rotated_by_quaternion(q)
@@ -273,7 +297,8 @@ class MainConverter:
                 if child_frame_bone.bone_name[0:9] != 'End Site_':
                     child_rot = child_frame_bone.rotation.copy()
                     child_rot.parent(parent_rot)
-                    possible_global_offset = dfs(child_frame_bone, bone_end_pos, child_rot, parent_rot, translate=translate)
+                    possible_global_offset = dfs(child_frame_bone, bone_end_pos, child_rot, parent_rot,
+                                                 translate=translate)
                     if possible_global_offset is not None:
                         return possible_global_offset
 
@@ -288,11 +313,16 @@ class MainConverter:
                                  offset: Vector3 = Vector3(0.0, 0.0, 0.0)) -> list[str]:
 
         def dfs(parent_frame_bone: FrameBone, parent_pos: Vector3, parent_rot: Quaternion,
-                last_stand_bone_rot: Quaternion = Quaternion(0.0, 0.0, 0.0, 1.0), translate: bool = False) -> list[str]:
+                grandparent_rot: Quaternion = None,
+                last_stand_bone_rot: Quaternion = None, last_stand: AecArmorStandPair = None,
+                translate: bool = False) -> list[str]:
             commands = []
             # recursion
             parent_bone = parent_frame_bone.bone
             child_bones = parent_bone.children
+
+            if parent_frame_bone.bone_name == 'thigh_r_F_MED_NeonCat_Body_T_03.ao':
+                print('here')
 
             for child_bone in child_bones:
                 is_defined_bone = child_bone.bone_name in aec_stand_pairs
@@ -312,26 +342,39 @@ class MainConverter:
                         # account for the model vector and t pose differences
 
                         # these following offset is armor stand specific
-                        try:
-                            child_aec_stand = aec_stand_pairs[child_bone.bone_name]
-                            q = Quaternion().between_vectors(child_aec_stand.size, child_aec_stand.t_pose)
+                        child_aec_stand = aec_stand_pairs[child_bone.bone_name]
+                        q = child_aec_stand.q_size_to_t_pose_tilt_strip.copy()
 
-                            q.parent(parent_rot)
-                            bone_start_pos += child_aec_stand.offset.copy().rotated_by_quaternion(last_stand_bone_rot)
-                            bone_end_pos = bone_start_pos + child_aec_stand.size.copy().rotated_by_quaternion(q)
+                        q.parent(parent_rot)
+                        if last_stand is not None:
 
-                        except KeyError:
-                            bone_end_pos = bone_start_pos
+                            q_2 = last_stand_bone_rot.copy()
+
+                            q_3 = last_stand.q_size_to_t_pose_tilt_strip.copy()
+                            q_3.parent(q_2)
+
+                        else:
+                            q_3 = grandparent_rot.copy()
+
+                        offset_finalized = child_aec_stand.offset.copy().rotated_by_quaternion(q_3)
+
+                        if last_stand is not None:
+                            offset_finalized.rotate_by_quaternion(self._model_rotation.conjugate())
+
+                        bone_start_pos += offset_finalized
+
+                        bone_end_pos = bone_start_pos + child_aec_stand.size.copy().rotated_by_quaternion(q)
+
+                        last_stand_bone_rot = parent_rot.copy()
+                        last_stand = child_aec_stand
 
                     resulting_position = bone_start_pos.copy()
                     resulting_rotation = parent_rot.copy()
 
                     resulting_position -= self._global_offset_fix
-                    resulting_position.rotate_by_quaternion(self._fix_orientation)
-                    resulting_rotation.parent(self._fix_orientation)
 
-                    resulting_rotation.parent(self._model_rotation)
                     resulting_position.rotate_by_quaternion(self._model_rotation)
+                    resulting_rotation.parent(self._model_rotation)
 
                     resulting_position += external_offset
 
@@ -339,7 +382,6 @@ class MainConverter:
                         resulting_position,
                         resulting_rotation)
 
-                    last_stand_bone_rot = parent_rot.copy()
                 elif translate and child_frame_bone.bone_name[0:9] != 'End Site_':
                     try:
                         bone_end_pos += child_frame_bone.position.rotated_by_quaternion(parent_rot) * self.scale
@@ -351,7 +393,8 @@ class MainConverter:
                     child_rot.parent(parent_rot)
                     if translate and parent_bone.bone_name == base:
                         translate = False
-                    commands += dfs(child_frame_bone, bone_end_pos, child_rot, last_stand_bone_rot, translate=translate)
+                    commands += dfs(child_frame_bone, bone_end_pos, child_rot, parent_rot, last_stand_bone_rot,
+                                    last_stand, translate=translate)
 
             return commands
 
@@ -359,16 +402,17 @@ class MainConverter:
         # initial position + offset (defined by function) + shift vector to account for armor stand height
         external_offset = offset + Vector3(0.0, -1.4, 0.0)
         origin = (initial_frame_bone.position.copy() * self.scale)
-        origin_rot = Quaternion(0, 0, 0, 1)
+        origin_rot = initial_frame_bone.rotation.copy()
         return dfs(initial_frame_bone, origin, origin_rot, translate=base is not None)
 
     def globalize_armature(self, function_name: str,
                            stands: list[tuple[Optional[str], Optional[Union[Vector3, str]], str,
                                               Vector3,
                                               Vector3
-                                        ]], fill_in: bool = False,
+                           ]], fill_in: bool = False,
                            show_names: bool = False, base: str = None, center: bool = True, uuid: str = None,
-                           offset: Vector3 = Vector3(0.0, 0.0, 0.0), rotate = Quaternion(0.0, 0.0, 0.0, 1.0), allow_rotation=False) -> None:
+                           offset: Vector3 = Vector3(0.0, 0.0, 0.0), rotate=Quaternion(0.0, 0.0, 0.0, 1.0),
+                           allow_rotation=False) -> None:
         """Loads a .bvh file.
 
             function_name: Name of the Minecraft function (e.g. could be name of the character, armature_001, etc)
@@ -560,7 +604,6 @@ class MainConverter:
                     for i in range(int(real_length)):
                         resulting_position = parent_pos * self.scale * self.debug_extra_scale + vector_step * (i + 1.0)
 
-                        resulting_position.rotate_by_quaternion(self._fix_orientation)
 
                         resulting_position += position
                         resulting_position.rotate_by_quaternion(self._model_rotation)
@@ -574,7 +617,6 @@ class MainConverter:
 
                 child_pos = parent_pos + child_pos_rel
                 resulting_position = child_pos * self.scale * self.debug_extra_scale
-                resulting_position.rotate_by_quaternion(self._fix_orientation)
                 resulting_position += position
                 resulting_position.rotate_by_quaternion(self._model_rotation)
 
@@ -598,7 +640,7 @@ class MainConverter:
         return commands
 
     def create_debug_armature(self, function_name: str, offset: Vector3 = Vector3(0.0, 0.0, 0.0), uuid: str = None,
-                              show_names: bool = False, rotate = Quaternion(0.0, 0.0, 0.0, 1.0)) -> None:
+                              show_names: bool = False, rotate=Quaternion(0.0, 0.0, 0.0, 1.0)) -> None:
 
         try:
             os.mkdir(self.function_directory)
@@ -615,7 +657,8 @@ class MainConverter:
 
         for ticks, frame in enumerate(frames):
             if ticks == 0:
-                self._global_offset_fix = frame.frame_bones[self.current_armature.root_bone_name].position * self.scale * self.debug_extra_scale
+                self._global_offset_fix = frame.frame_bones[
+                                              self.current_armature.root_bone_name].position * self.scale * self.debug_extra_scale
 
             # per function
 
