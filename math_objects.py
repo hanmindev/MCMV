@@ -71,7 +71,7 @@ class Euler:
             cosy_cosp = 1 - 2 * (qx * qx + qz * qz)
             self.z = math.atan2(-siny_cosp, cosy_cosp)
         elif self.order == 'zyx':
-            sinp = 2 * (qw * qy - qz * qx)
+            sinp = 2 * (qz * qx - qw * qy)
             self.y = math.asin(max(-1.0, min(sinp, 1.0)))
 
             sinr_cosp = 2 * (qw * qx + qy * qz)
