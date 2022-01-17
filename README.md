@@ -5,7 +5,7 @@ Example video of it in action: https://www.youtube.com/watch?v=L2yVFUgoeBY
 
 Quick setup for beginners tutorial: https://www.youtube.com/watch?v=uLdCslxuUDs [outdated, but if you follow the tutorial below you should be able to follow through]. I will post an updated tutorial as soon as I have some time free from school.
 
-This program lets you import pretty much any armature animations into Minecraft by converting .bvh files into .mcfunction.
+This program lets you import pretty much any armature animations into Minecraft by converting .bvh files into .mcfunction. Inside the game, .mcfunction files reposition armor stand entities with custom models on its head to create an animated armature rig.
 
 Using programs like blender, you can export animations to .bvh which can be converted by this program into .mcfunction.
 
