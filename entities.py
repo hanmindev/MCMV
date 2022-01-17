@@ -91,7 +91,7 @@ class AecArmorStandPair:
                         '\'' + i + '\'' for i in tags) + '],DisabledSlots:4144959,Invisible:1,'
                                                          '' + utility.uuid_str_to_uuid_nbt(
                         self.stand_uuid) + ',CustomNameVisible: ' + str(
-                        1) * self.show_names + 'b, '
+                        1 * self.show_names) + 'b, '
                                                'CustomName: \'{"text": "'
                                                '' + self.name + '"}\' }]}',
                     'item replace entity ' + self.stand_uuid + ' armor.head with ' + self.item]

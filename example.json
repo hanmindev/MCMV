@@ -15,16 +15,16 @@
                     "bvh_path": "data/CHARACTER1.bvh",
                     "scale": 2.0,
                     "order": "xyz",
-                    "max_frames": 0,
-                    "face_north": ["xyz", 0.0, -1.2, 0.0],
+                    "max_frames": -1,
+                    "face_north": ["xyz", 0.0, 0.0, 0.0],
                     "armatures": [
                         {
                             "name": "character_1",
                             "debug": false,
-                            "show_names": "false",
+                            "show_names": false,
                             "transformation": {
                                 "root_uuid": "58eee451-d736-4207-affc-e73aec75872f",
-                                "offset": [0.0, 0.0, 0.0],
+                                "offset": [0.0, -1.2, 0.0],
                                 "base": "Hip",
                                 "center": true,
                                 "rotation": ["xyz", 0.0, 0.0, 0.0],

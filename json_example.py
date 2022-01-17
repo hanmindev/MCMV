@@ -8,7 +8,7 @@ def return_rotation(rot_list: list) -> Quaternion:
     returns a quaternion object representing the rotation. """
     if len(rot_list) == 3:
         return Quaternion().set_from_euler(Euler('xyz', *rot_list[0:3]))
-    elif type(rot_list[3]) is float:
+    elif type(rot_list[0]) is float and type(rot_list[3]) is float:
         return Quaternion(*rot_list[0:4])
     else:
         if type(rot_list[0] is str):
@@ -19,7 +19,7 @@ def return_rotation(rot_list: list) -> Quaternion:
 
 if __name__ == '__main__':
     """This code is very messy. It's just for json importing. I'll clean it up in the future."""
-    f = open('example.json')
+    f = open('json_example.json')
 
     data = json.load(f)
     if data['format_version'] != '2.0':
