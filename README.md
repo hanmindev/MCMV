@@ -124,7 +124,7 @@ converter.reset_function()
 converter.search_function()
 ```
 
-With that, you should be ready to go! Just run the file.
+With that, you should be ready to go!
 
 ## Minecraft
 1. You should have spawned in entities as described previously.
