@@ -4,7 +4,7 @@
     "comment":  "This file (should) do exactly what example.py does. This being in .json format should make it easier to use.",
     "stages":[
         {
-            "function_path": "C:/Users/USER_NAME/AppData/Roaming/.minecraft/saves/WORLD_NAME/datapacks/DATAPACK_NAME/data/animate/functions/FUNCTION_NAME",
+            "function_path": "C:/Users/USER_NAME/AppData/Roaming/.minecraft/saves/WORLD_NAME/datapacks/DATAPACK_NAME/data/animate/functions/FOLDER_NAME",
             "reset_function": true,
             "remove_function": true,
             "search_function": true,
