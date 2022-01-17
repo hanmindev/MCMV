@@ -122,7 +122,7 @@ class Euler:
     def to_tuple(self) -> tuple[float, float, float]:
         """Return a tuple representation of the Euler object.
         """
-        return (self.x, self.y, self.z)
+        return self.x, self.y, self.z
 
 
 class Quaternion:
@@ -241,6 +241,10 @@ class Quaternion:
         w = self.w / length
         return Quaternion(x, y, z, w)
 
+    def conjugate(self) -> Quaternion:
+        """Return the conjugate quaterion"""
+        return Quaternion(-1 * self.x, -1 * self.y, -1 * self.z, self.w)
+
     def between_vectors(self, v_1: Vector3, v_2: Vector3) -> Quaternion:
         """Set the quaternion as the shortest rotation from v_1 to v_2.
             v_1: A Vector3 object
@@ -277,7 +281,7 @@ class Quaternion:
     def to_tuple(self) -> tuple[float, float, float, float]:
         """Return a tuple representation of the quaternion
         """
-        return (self.x, self.y, self.z, self.w)
+        return self.x, self.y, self.z, self.w
 
 
 class Vector3:
@@ -397,7 +401,48 @@ class Vector3:
             quaternion: A Quaternion object.
         """
         length = self.magnitude()
-        self.normalize()
+        if length == 0.0:
+            self.i = 0.0
+            self.j = 0.0
+            self.k = 0.0
+        else:
+            self.normalize()
+
+            a = quaternion.w
+            b = quaternion.x
+            c = quaternion.y
+            d = quaternion.z
+
+            r11 = a * a + b * b - c * c - d * d
+            r21 = 2 * b * c + 2 * a * d
+            r31 = 2 * b * d - 2 * a * c
+            r12 = 2 * b * c - 2 * a * d
+            r22 = a * a - b * b + c * c - d * d
+            r32 = 2 * c * d + 2 * a * b
+            r13 = 2 * b * d + 2 * a * c
+            r23 = 2 * c * d - 2 * a * b
+            r33 = a * a - b * b - c * c + d * d
+
+            i = self.i
+            j = self.j
+            k = self.k
+
+            self.i = i * r11 + j * r12 + k * r13
+            self.j = i * r21 + j * r22 + k * r23
+            self.k = i * r31 + j * r32 + k * r33
+
+            self.i *= length
+            self.j *= length
+            self.k *= length
+
+    def rotated_by_quaternion(self, quaternion: Quaternion):
+        """Return a rotated version of self by quaternion.
+            quaternion: A Quaternion object.
+        """
+        length = self.magnitude()
+        if length == 0.0:
+            return Vector3(0.0, 0.0, 0.0)
+        self_copy = self.normalized()
 
         a = quaternion.w
         b = quaternion.x
@@ -414,17 +459,19 @@ class Vector3:
         r23 = 2 * c * d - 2 * a * b
         r33 = a * a - b * b - c * c + d * d
 
-        i = self.i
-        j = self.j
-        k = self.k
+        i = self_copy.i
+        j = self_copy.j
+        k = self_copy.k
 
-        self.i = i * r11 + j * r12 + k * r13
-        self.j = i * r21 + j * r22 + k * r23
-        self.k = i * r31 + j * r32 + k * r33
+        self_copy.i = i * r11 + j * r12 + k * r13
+        self_copy.j = i * r21 + j * r22 + k * r23
+        self_copy.k = i * r31 + j * r32 + k * r33
 
-        self.i *= length
-        self.j *= length
-        self.k *= length
+        self_copy.i *= length
+        self_copy.j *= length
+        self_copy.k *= length
+
+        return self_copy
 
     def scale_pixels_to_meter(self) -> None:
         """Scale self from pixels to meters.
