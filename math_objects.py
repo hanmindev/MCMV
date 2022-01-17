@@ -71,7 +71,7 @@ class Euler:
             cosy_cosp = 1 - 2 * (qx * qx + qz * qz)
             self.z = math.atan2(-siny_cosp, cosy_cosp)
         elif self.order == 'zyx':
-            sinp = 2 * (qz * qx - qw * qy)
+            sinp = 2 * (qw * qy - qz * qx)
             self.y = math.asin(max(-1.0, min(sinp, 1.0)))
 
             sinr_cosp = 2 * (qw * qx + qy * qz)
@@ -122,7 +122,7 @@ class Euler:
     def to_tuple(self) -> tuple[float, float, float]:
         """Return a tuple representation of the Euler object.
         """
-        return (self.x, self.y, self.z)
+        return self.x, self.y, self.z
 
 
 class Quaternion:
@@ -242,6 +242,7 @@ class Quaternion:
         return Quaternion(x, y, z, w)
 
     def conjugate(self) -> Quaternion:
+        """Return the conjugate quaterion"""
         return Quaternion(-1 * self.x, -1 * self.y, -1 * self.z, self.w)
 
     def between_vectors(self, v_1: Vector3, v_2: Vector3) -> Quaternion:
@@ -280,7 +281,7 @@ class Quaternion:
     def to_tuple(self) -> tuple[float, float, float, float]:
         """Return a tuple representation of the quaternion
         """
-        return (self.x, self.y, self.z, self.w)
+        return self.x, self.y, self.z, self.w
 
 
 class Vector3:

@@ -1,81 +1,17 @@
 from __future__ import annotations
 
-from typing import Optional, Union
+from typing import Optional
 import utility
 from math_objects import Quaternion, Vector3, Euler
-import random
 
 
-# class Bone:
-#     """Bone objects as described at the start of the .bvh file.
-#
-#     Instance Attributes:
-#       - bone_name: Name of the bone
-#       - channel_count: The number of channels describing the Bone (e.g. position, rotation)
-#       - channel_names: The names of the channels (e.g. Xrotation, Xposition)
-#       - offset: The offset from the bone's parent.
-#       - parent: Name of the parent of this bone.
-#       - children: Set containing names of this bone's children.
-#       - size: The size of the bone
-#     """
-#
-#     def __init__(self, bone_name: str) -> None:
-#         self.bone_name = bone_name
-#         self.channel_count = 0
-#         self.channel_names = []
-#         self.offset = Vector3(0.0, 0.0, 0.0)
-#         self.parent = None
-#         self.children = set()
-#         self.size = None
-#
-#     bone_name: str
-#     channel_count: int
-#     channel_names = list[str]
-#     offset: Vector3
-#     parent: Optional[str]
-#     children: set[str]
-#
-#
-
-#
-#
-# class GlobalBone:
-#     """Bones with global position and rotation.
-#
-#     Instance Attributes:
-#       - name: Name of the bone.
-#       - position: Position of the bone.
-#       - rotation: Rotation of the bone.
-#     """
-#
-#     def __init__(self, name: str, position: Vector3, rotation: Quaternion):
-#         self.name = name
-#         self.position = position
-#         self.rotation = rotation
-#
-#     name: str
-#     position: Vector3
-#     rotation: Quaternion
-#
-#
-# class Frame:
-#     """A single frame containing all FrameBones for a specific armature.
-#
-#     Instance Attributes:
-#       - frame_bones: A dictionary mapping the bone name to a FrameBone object.
-#     """
-#
-#     def __init__(self) -> None:
-#         self.frame_bones = {}
-#
-#     frame_bones: dict[str: FrameBone]
-#
-#
 class AecArmorStandPair:
     """A class describing an AEC-ArmorStand pair.
 
     Instance Attributes:
-      - name: Name of the bone (should be a key in main.BONE_MAPPER)
+      - name: Name of the bone (as defined in the .bvh file). Should be the name of the ending joint in a bone.
+      - start_bone: The starting bone. Should be the parent of end_bone.
+      - end_bone: The ending bone. Should be a child of start_bone.
       - aec_uuid: UUID of the AEC (e.g. 2f9d6e9a-aaca-4964-9059-ec43f2016499)
       - stand_uuid: UUID of the Armor Stand (e.g. 19c4830d-8714-4e62-b041-0cde12b6de96)
       - size: The size of the bone as a Vector3 object
@@ -87,20 +23,22 @@ class AecArmorStandPair:
     """
     # Private Instance Attributes:
     #  - _update: Whether the Air NBT should be 0 or 1. Updating this value causes the AEC to change position.
+    #  - _seed_prefix: The seed value to create the UUID for the armor stand and the area effect cloud.
 
     name: str
-    start: Bone
-    end: Bone
+    start_bone: Bone
+    end_bone: Bone
     aec_uuid: str
     stand_uuid: str
     size: Vector3
     offset: Vector3
     t_pose: Vector3
     item: str
+
     _update: bool
     _seed_prefix: str
 
-    def __init__(self, seed_prefix: tuple[str, str], root_uuid: str, name: str,
+    def __init__(self, seed_prefix: tuple[str, str], root_uuid: str,
                  item: str, start_bone: Bone, size: Vector3, offset: Vector3, end_bone: Bone, show_names: bool,
                  allow_rotation: bool) -> None:
         self.name = end_bone.bone_name
@@ -119,10 +57,9 @@ class AecArmorStandPair:
 
         if self.size.magnitude() != 0 and self.t_pose.magnitude() != 0:
             q_size_to_t_pose = Quaternion().between_vectors(self.size, self.t_pose)
-            self.q_size_to_t_pose_tilt_strip = q_size_to_t_pose
+            self.q_size_to_t_pose = q_size_to_t_pose
         else:
-            self.q_size_to_t_pose_tilt_strip = Quaternion(0.0, 0.0, 0.0, 1.0)
-
+            self.q_size_to_t_pose = Quaternion(0.0, 0.0, 0.0, 1.0)
 
         # name of the item to hold
         self.item = item
@@ -172,13 +109,7 @@ class AecArmorStandPair:
           - rotation: The rotation of the armor_stand
           - root_uuid: The UUID of the entity that the AEC-ArmorStand pair is positioned relative to.
         """
-        # if self.size.magnitude() != 0 and self.t_pose.magnitude() != 0:
-        #     q = Quaternion().between_vectors(self.size, self.t_pose)
-        # else:
-        #     q = Quaternion(0.0, 0.0, 0.0, 1.0)
-
-        q=self.q_size_to_t_pose_tilt_strip.copy()
-        # q=Quaternion(0.0, 0.0, 0.0, 1.0)
+        q = self.q_size_to_t_pose.copy()
 
         q.parent(rotation)
 
@@ -202,6 +133,8 @@ class AecArmorStandPair:
 
         rot = list(Euler('zyx').set_from_quaternion(q).to_tuple())
 
+        # I'm really confused why Minecraft armor stand poses are Euler zyx but y and z are negative. Or I did the math
+        # wrong but it works so /shrug
         rot[1] *= -1
         rot[2] *= -1
 
@@ -214,6 +147,8 @@ class AecArmorStandPair:
 
 
 class Stage:
+    """A class keeping track of added armatures."""
+
     def __init__(self):
         self.armatures = set()
         self.max_ticks = 0
@@ -224,7 +159,18 @@ class Stage:
 
 
 class Bone:
-    def __init__(self, bone_name, parent, offset, channel_names):
+    """A class describing a single Bone as specified in the .bvh file.
+
+    Instance Attributes:
+      - bone_name: Name of the bone. A bone connecting parent joint A and child joint B will have the name B. This
+      is because a parent bone may have multiple child bones but a child bone will only have one parent.
+      - parent: The bone's parent Bone object.
+      - offset: The offset from the bone's parent as specified in the .bvh file.
+      - channel_names: The names of the channels (e.g. Xrotation, Xposition)
+      - children: A list of this bone's children.
+    """
+
+    def __init__(self, bone_name: str, parent: Optional[Bone], offset: Vector3, channel_names: list[str]) -> None:
         self.bone_name = bone_name
         self.parent = parent
         self.offset = offset
@@ -236,7 +182,7 @@ class Bone:
         return 'Bone Object: ' + self.bone_name
 
     bone_name: str
-    parent: Bone
+    parent: Optional[Bone]
     offset: Vector3
     channel_names: list[str]
     children: list[Bone]
@@ -247,6 +193,7 @@ class FrameBone:
 
     Instance Attributes:
       - bone_name: The name of the bone that FrameBone is based on.
+      - bone: The Bone object that this FrameBone is based on.
       - position: The position of the bone from the channels as described by the .bvh file.
       - rotation: The rotation of the bone from the channels as described by the .bvh file.
     """
@@ -261,10 +208,10 @@ class FrameBone:
         """Return a string representation of the Bone object for debugging purposes."""
         return 'Bone Object: ' + self.bone_name
 
-    bone_name: str  # the bone that FrameBone is based on.
-    bone: Bone  # the bone that FrameBone is based on.
+    bone_name: str
+    bone: Bone
     position: Vector3
-    rotation: Optional[Quaternion]
+    rotation: Quaternion
 
 
 class Frame:
@@ -281,12 +228,19 @@ class Frame:
 
 
 class Armature:
+    """A class representing an Armature object.
+    Instance Attributes:
+      - bones: A mapping from string bone_name to Bone objects.
+      - frames: A list of Frame objects, with the index corresponding to the frame number.
+    """
+
     def __init__(self):
         self.bones = {}
         self.frames = []
 
     def add_bone(self, bone_name, parent_name, offset, channels):
-        assert bone_name not in self.bones, 'bruh'
+        """Add a bone to the armature."""
+        assert bone_name not in self.bones, 'Bone ' + bone_name + ' already in Armature!'
 
         if parent_name is None:
             new_bone = Bone(bone_name, None, offset, channels)
@@ -298,6 +252,7 @@ class Armature:
         self.bones[bone_name] = new_bone
 
     def copy(self):
+        """Return a copied version of self."""
         copy_armature = Armature
         copy_armature.bones = self.bones.copy()
         copy_armature.frames = self.frames.copy()

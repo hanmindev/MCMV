@@ -23,6 +23,7 @@ def uuid_str_to_uuid_nbt(uuid: str) -> str:
 
 
 def uuid_ints_to_uuid_str(uuid: tuple[int, int, int, int]):
+    """Return a string representation given the 4 integer UUID representation."""
     usc = tuple(hex(i % 2 ** 32)[2:10].zfill(8) for i in uuid)
 
     return '-'.join([usc[0], usc[1][0:4], usc[1][4:8], usc[2][0:4], usc[2][4:8] + usc[3]])
@@ -46,10 +47,13 @@ def get_function_directory(directory: str, file: Optional[str]) -> str:
                     return datapack_name + ':' + '/'.join(datapack_directory) + file
     print('This doesn\'t seem to be a valid path!')
     raise 'Incorrect Path!'
+    # just in case
     sys.exit()
 
 
 def get_joint_uuids(function_directory: str, function_name: str, name: str) -> tuple[str, str]:
+    """Uses the function_directory, function_name, and name to create UUIDs for the AEC-Stand pair."""
+
     random.seed(get_function_directory(function_directory, function_name) + name)
 
     # noinspection PyTypeChecker
@@ -57,4 +61,4 @@ def get_joint_uuids(function_directory: str, function_name: str, name: str) -> t
     # noinspection PyTypeChecker
     stand_uuid = uuid_ints_to_uuid_str(tuple(random.randint(-2 ** 31, 2 ** 31 - 1) for _ in range(4)))
 
-    return (aec_uuid, stand_uuid)
+    return aec_uuid, stand_uuid
