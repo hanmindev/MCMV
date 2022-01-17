@@ -10,7 +10,7 @@ This program lets you import pretty much any armature animations into Minecraft 
 Using programs like blender, you can export animations to .bvh which can be converted by this program into .mcfunction.
 
 # Examples
-Character dancing. Virtually any humanoid armature animation is able to be used to create an animation with the model on the right with a bit of tweaking.
+Character dancing. Virtually any humanoid armature animation is able to be used to create an animation with the model on the right in Minecraft with a bit of tweaking. Custom model rigs aren't limited to humanoid armatures, it's just that I only had time to make a humanoid demo.
 
 !["Characters  boxes  in dances"](https://skfb.ly/6VXqP) by Unity  (shehab house) is licensed under ![Creative Commons Attribution](http://creativecommons.org/licenses/by/4.0/).
 
