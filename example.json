@@ -13,7 +13,7 @@
             "files": [
                 {
                     "bvh_path": "data/CHARACTER1.bvh",
-                    "scale": 2.0,
+                    "scale": 1.0,
                     "order": "xyz",
                     "max_frames": -1,
                     "face_north": ["xyz", 0.0, 0.0, 0.0],
@@ -109,7 +109,7 @@
                 },
                 {
                     "bvh_path": "data/CHARACTER2.bvh",
-                    "scale": 2.0,
+                    "scale": 1.0,
                     "armatures": [
                         {
                             "name": "character_2",
