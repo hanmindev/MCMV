@@ -34,75 +34,124 @@ class Euler:
         qz = quaternion.z
         qw = quaternion.w
 
+        x2 = qx + qx
+        y2 = qy + qy
+        z2 = qz + qz
+        xx = qx * x2
+        xy = qx * y2
+        xz = qx * z2
+        yy = qy * y2
+        yz = qy * z2
+        zz = qz * z2
+        wx = qw * x2
+        wy = qw * y2
+        wz = qw * z2
+
+        m11 = (1 - (yy + zz))
+        m21 = (xy + wz)
+        m31 = (xz - wy)
+
+        m12 = (xy - wz)
+        m22 = (1 - (xx + zz))
+        m32 = (yz + wx)
+
+        m13 = (xz + wy)
+        m23 = (yz - wx)
+        m33 = (1 - (xx + yy))
+
         if self.order == 'xyz':
-            # pitch (y-axis rotation)
-            sinp = 2 * (qx * qz + qw * qy)
-            self.y = math.asin(max(-1.0, min(sinp, 1.0)))
 
-            # roll (x-axis rotation)
-            sinr_cosp = 2 * (qy * qz - qw * qx)
-            cosr_cosp = 1 - 2 * (qx * qx + qy * qy)
-            self.x = math.atan2(-sinr_cosp, cosr_cosp)
+            self.y = math.asin(min(max(m13, -1), 1))
 
-            # yaw (z-axis rotation)
-            siny_cosp = 2 * (qx * qy - qw * qz)
-            cosy_cosp = 1 - 2 * (qy * qy + qz * qz)
-            self.z = math.atan2(-siny_cosp, cosy_cosp)
+            if (abs(m13) < 0.9999999):
+
+                self.x = math.atan2(- m23, m33)
+                self.z = math.atan2(- m12, m11)
+
+            else:
+
+                self.x = math.atan2(m32, m22)
+                self.z = 0
+
+
+
         elif self.order == 'yxz':
-            sinp = 2 * (qy * qz - qw * qx)
-            self.x = math.asin(-1 * max(-1.0, min(sinp, 1.0)))
 
-            sinr_cosp = 2 * (qx * qz + qw * qy)
-            cosr_cosp = 1 - 2 * (qx * qx + qy * qy)
-            self.y = math.atan2(sinr_cosp, cosr_cosp)
+            self.x = math.asin(- min(max(m23, -1), 1))
 
-            siny_cosp = 2 * (qx * qy + qw * qz)
-            cosy_cosp = 1 - 2 * (qx * qx + qz * qz)
-            self.z = math.atan2(siny_cosp, cosy_cosp)
+            if (abs(m23) < 0.9999999):
+
+                self.y = math.atan2(m13, m33)
+                self.z = math.atan2(m21, m22)
+
+            else:
+
+                self.y = math.atan2(- m31, m11)
+                self.z = 0
+
+
+
         elif self.order == 'zxy':
-            sinp = 2 * (qy * qz + qw * qx)
-            self.x = math.asin(max(-1.0, min(sinp, 1.0)))
 
-            sinr_cosp = 2 * (qx * qz - qw * qy)
-            cosr_cosp = 1 - 2 * (qx * qx + qy * qy)
-            self.y = math.atan2(-sinr_cosp, cosr_cosp)
+            self.x = math.asin(min(max(m32, -1), 1))
 
-            siny_cosp = 2 * (qx * qy - qw * qz)
-            cosy_cosp = 1 - 2 * (qx * qx + qz * qz)
-            self.z = math.atan2(-siny_cosp, cosy_cosp)
+            if (abs(m32) < 0.9999999):
+
+                self.y = math.atan2(- m31, m33)
+                self.z = math.atan2(- m12, m22)
+
+            else:
+
+                self.y = 0
+                self.z = math.atan2(m21, m11)
+
+
+
         elif self.order == 'zyx':
-            sinp = 2 * (qw * qy - qz * qx)
-            self.y = math.asin(max(-1.0, min(sinp, 1.0)))
 
-            sinr_cosp = 2 * (qw * qx + qy * qz)
-            cosr_cosp = 1 - 2 * (qx * qx + qy * qy)
-            self.x = math.atan2(sinr_cosp, cosr_cosp)
+            self.y = math.asin(- min(max(m31, -1), 1))
 
-            siny_cosp = 2 * (qw * qz + qx * qy)
-            cosy_cosp = 1 - 2 * (qy * qy + qz * qz)
-            self.z = math.atan2(siny_cosp, cosy_cosp)
+            if (abs(m31) < 0.9999999):
+
+                self.x = math.atan2(m32, m33)
+                self.z = math.atan2(m21, m11)
+
+            else:
+
+                self.x = 0
+                self.z = math.atan2(- m12, m22)
+
+
+
         elif self.order == 'yzx':
-            sinp = 2 * (qx * qy + qw * qz)
-            self.z = math.asin(max(-1.0, min(sinp, 1.0)))
 
-            sinr_cosp = 2 * (qy * qz - qw * qx)
-            cosr_cosp = 1 - 2 * (qx * qx + qz * qz)
-            self.x = math.atan2(-sinr_cosp, cosr_cosp)
+            self.z = math.asin(min(max(m21, -1), 1))
 
-            siny_cosp = 2 * (qx * qz - qw * qy)
-            cosy_cosp = 1 - 2 * (qy * qy + qz * qz)
-            self.y = math.atan2(-siny_cosp, cosy_cosp)
+            if (abs(m21) < 0.9999999):
+
+                self.x = math.atan2(- m23, m22)
+                self.y = math.atan2(- m31, m11)
+
+            else:
+
+                self.x = 0
+                self.y = math.atan2(m13, m33)
+
+
+
         elif self.order == 'xzy':
-            sinp = 2 * (qx * qy - qw * qz)
-            self.z = math.asin(-1 * max(-1.0, min(sinp, 1.0)))
 
-            sinr_cosp = 2 * (qy * qz + qw * qx)
-            cosr_cosp = 1 - 2 * (qx * qx + qz * qz)
-            self.x = math.atan2(sinr_cosp, cosr_cosp)
+            self.z = math.asin(- min(max(m12, -1), 1))
 
-            siny_cosp = 2 * (qx * qz + qw * qy)
-            cosy_cosp = 1 - 2 * (qy * qy + qz * qz)
-            self.y = math.atan2(siny_cosp, cosy_cosp)
+            if (abs(m12) < 0.9999999):
+
+                self.x = math.atan2(m32, m22)
+                self.y = math.atan2(m13, m11)
+
+            else:
+
+                self.x = math.atan2(- m23, m33)
+                self.y = 0
 
         self.x = math.degrees(self.x)
         self.y = math.degrees(self.y)
@@ -134,7 +183,7 @@ class Quaternion:
       - z: The k component of the quaternion.
       - w: The real component of the quaternion.
     """
-    def __init__(self, x: float = None, y: float = None, z: float = None, w: float = None) -> None:
+    def __init__(self, x: float = 0.0, y: float = 0.0, z: float = 0.0, w: float = 1.0) -> None:
         """Create a new Quaternion object. Note that the real part goes at the end unlike
         some quaternion representations.
 
@@ -155,6 +204,17 @@ class Quaternion:
     def copy(self) -> Quaternion:
         """Return a copy of the Quaternion object."""
         return Quaternion(self.x, self.y, self.z, self.w)
+
+    def extract_vector(self) -> Vector3:
+        sin = math.sin(math.acos(self.w))
+        try:
+            return Vector3(self.x, self.y, self.z) * (1 / sin)
+        except ZeroDivisionError:
+            return Vector3(0.0, 0.0, 0.0)
+
+    def replace_vector(self, vector: Vector3):
+        sin = math.sin(math.acos(self.w))
+        self.x, self.y, self.z = (vector * sin).to_tuple()
 
     def set_from_euler(self, euler: Euler) -> Quaternion:
         """Set the quaternion from an Euler object.
@@ -221,6 +281,25 @@ class Quaternion:
         self.y = y
         self.z = z
         self.w = w
+
+    def parented(self, parent: Quaternion) -> Quaternion:
+        """Return a quaternion that is self rotated by the parent quaternion.
+
+            parent: A Quaternion object to parent.
+        """
+        child = self.copy()
+
+        x = parent.w * child.x + parent.x * child.w + parent.y * child.z - parent.z * child.y
+        y = parent.w * child.y - parent.x * child.z + parent.y * child.w + parent.z * child.x
+        z = parent.w * child.z + parent.x * child.y - parent.y * child.x + parent.z * child.w
+        w = parent.w * child.w - parent.x * child.x - parent.y * child.y - parent.z * child.z
+
+        child.x = x
+        child.y = y
+        child.z = z
+        child.w = w
+
+        return child
 
     def normalize(self) -> None:
         """Normalize self such that the magnitude is 1.
@@ -380,6 +459,28 @@ class Vector3:
         j = self.j / length
         k = self.k / length
         return Vector3(i, j, k)
+
+    def scale_to(self, scale: float) -> None:
+        """Scale vector to desired magnitude."""
+        m = self.magnitude()
+        if m == 0:
+            if scale == 0:
+                return
+            else:
+                raise 'Vector scale error: Cannot scale zero vector to non-zero size.'
+        else:
+            self.__mul__(scale / m)
+
+    def scaled_to(self, scale: float) -> Vector3:
+        """Scale vector to desired magnitude."""
+        m = self.magnitude()
+        if m == 0:
+            if scale == 0:
+                return Vector3(0.0, 0.0, 0.0)
+            else:
+                raise 'Vector scale error: Cannot scale zero vector to non-zero size.'
+        else:
+            return self * (scale / m)
 
     def dot_prod(self, other: Vector3) -> float:
         """Return the dot product of self and other.
