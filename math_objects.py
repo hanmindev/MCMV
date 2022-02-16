@@ -137,8 +137,6 @@ class Euler:
                 self.x = 0
                 self.y = math.atan2(m13, m33)
 
-
-
         elif self.order == 'xzy':
 
             self.z = math.asin(- min(max(m12, -1), 1))
@@ -332,9 +330,12 @@ class Quaternion:
         Rotating v_1 by self.between_vectors(v_1,v_2) yields a vector
         pointing in the same direction as v_2.
         """
-        v1 = v_1.normalized()
-        v2 = v_2.normalized()
-        dot = Vector3.dot_prod(v1, v2)
+        try:
+            v1 = v_1.normalized()
+            v2 = v_2.normalized()
+            dot = Vector3.dot_prod(v1, v2)
+        except ZeroDivisionError:
+            dot = 1.0
 
         if dot > 0.99999:
             self.x = 0.0
@@ -409,7 +410,7 @@ class Vector3:
     def __rmul__(self, other: float):
         """See __mul__.
         """
-        self.__mul__(other)
+        return self.__mul__(other)
 
     def __iter__(self) -> float:
         """Iterate between each component of the vector in ijk order.

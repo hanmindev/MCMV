@@ -49,6 +49,8 @@ class Bone:
 
         self.fix_bone_size = False
 
+        self._delocalized = False
+
     def __repr__(self) -> str:
         """Return a string representation of the object for debugging purposes."""
         return 'Bone: ' + self.name
@@ -89,7 +91,7 @@ class Bone:
 
     def delocalize(self, preserve_offset: bool = False, preserve_rotation: bool = False):
         """Delocalize the bone's pivot position and rotation such that the parent is not needed."""
-
+        self._delocalized = True
         if self.parent is not None:
             if preserve_rotation:
                 # preserve rotation

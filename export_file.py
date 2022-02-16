@@ -65,6 +65,16 @@ class ArmaturePreparer:
             self.keep.add(visible_bone[0])
             self.keep.add(bone_name)
 
+            # TODO remove this later
+            def add_keep(bone: Bone):
+                if bone is None:
+                    return
+                self.keep.add(bone.name)
+                add_keep(bone.parent)
+
+            add_keep(end_bone)
+
+
         def dfs_add_positional(bone: Bone):
             if bone.name not in self.keep:
                 self.positional.add(bone.name)
@@ -202,17 +212,21 @@ class BedrockModelExporter:
 
         for i, frame in enumerate(aa.frames):
             armature_animated = self.ap.per_frame(frame)
-            for bone_name in armature_animated.bones:
-                if bone_name[0:9] == 'mcf_root_':
-                    continue
-                frame_time = i / fps
-                try:
-                    rotation = frame.bone_channels[armature_animated.bones[bone_name].parent.name].rotation
-                except KeyError:
-                    rotation = Quaternion()
-                if i == 0:
-                    output_animation[bone_name] = []
-                output_animation[bone_name].append((frame_time, rotation))
+            def dfs(bone: Bone):
+                if not bone.name[0:9] == 'mcf_root_':
+                    frame_time = i / fps
+                    try:
+                        rotation = frame.bone_channels[bone.parent.name].rotation
+                    except KeyError:
+                        rotation = Quaternion()
+                    if i == 0:
+                        output_animation[bone.name] = []
+                    output_animation[bone.name].append((frame_time, rotation))
+                for child in bone.children:
+                    dfs(child)
+
+
+            dfs(armature_animated.root)
 
         return output_animation
 
