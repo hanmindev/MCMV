@@ -37,9 +37,9 @@ class Bone:
         self.pivot_offset = Vector3(0.0, 0.0, 0.0)
         self.pivot = Vector3(0.0, 0.0, 0.0)
 
-        self.model_size = Vector3(0.0, 1.0, 0.0)
+        self.model_size = Vector3(0.0, 0.0, 0.0)
         self.model_size_to_original = Quaternion(0.0, 0.0, 0.0, 1.0)
-        self.original_size = Vector3(0.0, 1.0, 0.0)
+        self.original_size = Vector3(0.0, 0.0, 0.0)
 
         # keyframe stuff
         self.animation_size_delta = Vector3(0.0, 0.0, 0.0)
@@ -104,8 +104,20 @@ class Bone:
 
             if preserve_offset:
                 # preserve position
+                # self.pivot_offset + self.pivot + self.animation_size_delta + self.original_size.rotated_by_quaternion(
+                #     self.animation_rotation)
 
-                self.pivot_offset += self.parent.find_ending()
+                self.pivot_offset += self.parent.pivot_offset + self.parent.pivot + self.parent.original_size
+
+                parent_anim_copy = self.parent.animation_size_delta.copy()
+                try:
+                    parent_anim_copy.rotate_by_quaternion(self.parent.parent.animation_rotation)
+                except:
+                    pass
+
+                self.animation_size_delta += parent_anim_copy
+
+                # self.pivot_offset += self.parent.find_ending()
 
     def remove_bone(self, preserve_offset: bool = False, preserve_rotation: bool = False):
         """Remove a bone. Any children of this bone will be given to this bone's parent.
@@ -127,9 +139,11 @@ class Bone:
 
 class ArmatureAnimation:
     frames: list[ArmatureFrame]
+    fps: int
 
-    def __init__(self):
+    def __init__(self, fps: Union[float, int]):
         self.frames = []
+        self.fps = fps
 
     def __len__(self):
         return len(self.frames)
@@ -256,14 +270,17 @@ class Armature:
             if r is None:
                 r = bone.name in rotational
             if bone is not self.root:
-                if bone.name not in keep:
-                    self.remove_bone(bone, p, r)
-                else:
-                    if bone.parent.name not in keep:
-                        bone.delocalize(p, r)
+                bone.delocalize(p, r)
+                # if bone.name not in keep:
+                #     self.remove_bone(bone, p, r)
+                # else:
+                #     if bone.parent.name not in keep:
+                #         bone.delocalize(p, r)
 
             for child in save_children:
                 dfs(child)
+            if bone.name not in keep and bone is not self.root:
+                self.remove_bone(bone, False, False)
 
         dfs(self.root)
 

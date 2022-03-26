@@ -11,7 +11,7 @@ def load_bvh(file_path: str, scale: float, order: str = 'xyz', max_frames: int =
     Armature, ArmatureAnimation]:
     name = '_'.join(file_path.split('/')[1:]).replace('.', '_').replace(' ', '_')
     new_armature = Armature(name)
-    new_animation = ArmatureAnimation()
+    new_animation = ArmatureAnimation(fps)
 
     scale = max(0.000000000000000001, scale)
 
@@ -115,8 +115,7 @@ def load_bvh(file_path: str, scale: float, order: str = 'xyz', max_frames: int =
                             rotation.y, rotation.z = rot_matrix_x(rotation.y, rotation.z)
 
                             # set new frame
-                            new_afb = ArmatureFrameBone(offset, rotation)
-                            new_frame.bone_channels[bone_name] = new_afb
+                            new_frame.bone_channels[bone_name] = ArmatureFrameBone(offset, rotation)
 
                             index_start = index_end
 
