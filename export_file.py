@@ -11,6 +11,23 @@ from armature import Armature, Bone, ArmatureFrame, ArmatureAnimation
 # from minecraft import AecArmorStandPair
 from utility import tuple_to_m_list
 
+class VisibleBones:
+    def __init__(self, armature: Armature):
+        self.visible_bones = {}
+        self.armature = armature
+
+    def add_bones(self, bone_list: list[tuple[Optional[str], Optional[Union[Vector3, str]], Vector3, Vector3, Any]]):
+        self.visible_bones
+
+    def create_bones(self, bone_set: set):
+        raise NotImplementedError
+
+    def fill_bones(self):
+        self.armature.bones
+        pass
+
+
+
 
 class DisplayVoxel:
     def __init__(self, offset: Vector3, size: Vector3):
@@ -20,15 +37,13 @@ class DisplayVoxel:
     def copy(self):
         return DisplayVoxel(self.offset.copy(), self.size.copy())
 
-
 class ArmaturePreparer:
     """Prepares an armature for export.
 
     Gets a raw armature and then figures out how the information from the visible bones should be used to scale,
     """
 
-    def __init__(self, original_armature: Armature, visible_bones: list[
-        tuple[Optional[str], Optional[Union[Vector3, str]], Vector3, Vector3, Any]], translation_fix_bones: set[str]):
+    def __init__(self, original_armature: Armature, visible_bone_object: VisibleBones, translation_fix_bones: set[str]):
         """bruh"""
         # visible_bones is in format:
         # parent_bone_name, child_bone_name, size, offset
@@ -45,12 +60,14 @@ class ArmaturePreparer:
         # loop through all the defined visible_bones, fill in parent information where missing, and if child is
         # vector, create a new bone.
 
+        # TODO: remove this, this is horrible
+        visible_bones = visible_bone_object.visible_bones
+
         # Fill in missing bone information
         for i in range(len(visible_bones)):
             # give parent to parentless children
             if visible_bones[i][0] is None:
                 visible_bones[i] = tuple((self.original_armature.bones[visible_bones[i][1]].parent.name, *visible_bones[i][1:]))
-                print('bad')
 
             if type(visible_bones[i][1]) is str:
                 end_bone = self.original_armature.bones[visible_bones[i][1]]
@@ -66,7 +83,6 @@ class ArmaturePreparer:
                 visible_bones[i] = (visible_bones[i][0], bone_name, *visible_bones[i][2:])
 
                 vector_child_count += 1
-                print('bad')
 
         # figure out which bones to keep
 
@@ -75,7 +91,6 @@ class ArmaturePreparer:
             end_bone = self.original_armature.bones[bone_name]
 
             self.keep.add(bone_name)
-            # TODO: find a way to remove this
             self.keep.add(visible_bone[0])
 
         def dfs_add_positional(bone: Bone):
@@ -252,8 +267,7 @@ class BedrockModelExporter:
 
         g.write(model_header.end())
 
-    def create_geo_model(self, armature: Armature, visible_bones: list[
-        tuple[Optional[str], Optional[Union[Vector3, str]], Vector3, Vector3, Any]],
+    def create_geo_model(self, armature: Armature, visible_bones: VisibleBones,
                          translation_fix_bones: Optional[set[str]]):
 
         self.ap = ArmaturePreparer(armature, visible_bones, translation_fix_bones)
@@ -286,8 +300,6 @@ class BedrockModelExporter:
                         rotation = frame.bone_channels[bone.parent.name].rotation
                     except KeyError:
                         rotation = Quaternion()
-                    # TODO: remove this
-                    rotation = frame.bone_channels[bone.name].rotation
 
                     position = bone.animation_size_delta
 
@@ -416,7 +428,7 @@ if __name__ == '__main__':
 
     b = BedrockModelExporter()
 
-    visible_bones = [
+    visible_bone_list = [
         ('Neck',
          'Head',
          Vector3(0.0, 8.0, 0.0),
@@ -478,6 +490,9 @@ if __name__ == '__main__':
          DisplayVoxel(Vector3(0.0, -6.0, 0.0), Vector3(4.0, 6.0, 4.0))
          )
     ]
+    visible_bones = VisibleBones(armature)
+    visible_bones.add_bones(visible_bone_list)
+
 
     b.create_geo_model(armature, visible_bones, {'Hip'})
     b.write_geo_model('C://Users//Hanmin//Desktop', 'model2',
