@@ -50,6 +50,7 @@ class ArmaturePreparer:
             # give parent to parentless children
             if visible_bones[i][0] is None:
                 visible_bones[i] = tuple((self.original_armature.bones[visible_bones[i][1]].parent.name, *visible_bones[i][1:]))
+                print('bad')
 
             if type(visible_bones[i][1]) is str:
                 end_bone = self.original_armature.bones[visible_bones[i][1]]
@@ -65,6 +66,7 @@ class ArmaturePreparer:
                 visible_bones[i] = (visible_bones[i][0], bone_name, *visible_bones[i][2:])
 
                 vector_child_count += 1
+                print('bad')
 
         # figure out which bones to keep
 
@@ -285,7 +287,7 @@ class BedrockModelExporter:
                     except KeyError:
                         rotation = Quaternion()
                     # TODO: remove this
-                    # rotation = frame.bone_channels[bone.name].rotation
+                    rotation = frame.bone_channels[bone.name].rotation
 
                     position = bone.animation_size_delta
 
