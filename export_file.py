@@ -45,36 +45,36 @@ class ArmaturePreparer:
         # loop through all the defined visible_bones, fill in parent information where missing, and if child is
         # vector, create a new bone.
 
+        # Fill in missing bone information
         for i in range(len(visible_bones)):
-            visible_bone = visible_bones[i]
-            if visible_bone[0] is None:
-                visible_bones[i] = tuple((self.original_armature.bones[visible_bone[1]].parent.name, *visible_bone[1:]))
+            # give parent to parentless children
+            if visible_bones[i][0] is None:
+                visible_bones[i] = tuple((self.original_armature.bones[visible_bones[i][1]].parent.name, *visible_bones[i][1:]))
 
-            if type(visible_bone[1]) is str:
-                end_bone = self.original_armature.bones[visible_bone[1]]
-                end_bone.additional_info = visible_bone[4]
-                bone_name = visible_bone[1]
+            if type(visible_bones[i][1]) is str:
+                end_bone = self.original_armature.bones[visible_bones[i][1]]
+                end_bone.additional_info = visible_bones[i][4]
+                bone_name = visible_bones[i][1]
             else:
-                bone_name = visible_bone[0] + '_vector_child_' + str(vector_child_count)
+                # give child to childless parent
+                bone_name = visible_bones[i][0] + '_vector_child_' + str(vector_child_count)
                 end_bone = Bone(bone_name)
-                end_bone.additional_info = visible_bone[4]
-                self.original_armature.add_bone(end_bone, visible_bone[0])
+                end_bone.additional_info = visible_bones[i][4]
+                self.original_armature.add_bone(end_bone, visible_bones[i][0])
 
-                visible_bones[i] = (visible_bone[0], bone_name, *visible_bone[2:])
+                visible_bones[i] = (visible_bones[i][0], bone_name, *visible_bones[i][2:])
 
                 vector_child_count += 1
 
+        # figure out which bones to keep
+
+        for visible_bone in visible_bones:
+            bone_name = visible_bone[1]
+            end_bone = self.original_armature.bones[bone_name]
+
             self.keep.add(bone_name)
-
+            # TODO: find a way to remove this
             self.keep.add(visible_bone[0])
-
-            def add_keep(bone: Bone):
-                if bone is None:
-                    return
-                # self.keep.add(bone.name)
-                add_keep(bone.parent)
-
-            add_keep(end_bone)
 
         def dfs_add_positional(bone: Bone):
             for child in bone.children:
@@ -94,7 +94,7 @@ class ArmaturePreparer:
             bone.pivot = visible_bone[3]
             bone.model_size_to_original = Quaternion().between_vectors(bone.model_size, bone.original_size)
 
-    def original_armature_pruned(self):
+    def original_armature_pruned(self) -> Armature:
         """Return a pruned version of the armature without any animation."""
         new_armature = self.original_armature.copy()
         new_armature.prune_bones_filtered(self.keep, self.positional, True)
@@ -178,7 +178,11 @@ class BedrockModelHeader(BedrockJsonHeader):
 
 class BedrockModelExporter:
     ap: Optional[ArmaturePreparer]
-    animation:  Optional[dict[str: list[tuple[float, Vector3, Quaternion]]]]
+    model: Optional[Armature]
+    fps: Optional[Union[float, int]]
+    animation: Optional[dict[str: list[tuple[float, Vector3, Quaternion]]]]
+    animation_length: Optional[Union[float, int]]
+    visible_bones: Optional[set[str]]
 
     def __init__(self):
         self.ap = None
@@ -186,6 +190,7 @@ class BedrockModelExporter:
         self.fps = None
         self.animation = None
         self.animation_length = None
+        self.visible_bones = None
 
     def write_geo_model(self, path: str, file_name: str, model_header: BedrockModelHeader):
         # third round, probably wouldn't have to if we dfsed
@@ -271,11 +276,17 @@ class BedrockModelExporter:
             frame_time = i / self.fps
 
             def dfs(bone: Bone):
+                if bone.name == 'Left_Ankle':
+                    pass
+
                 if not bone.name[0:9] == 'mcf_root_':
                     try:
                         rotation = frame.bone_channels[bone.parent.name].rotation
                     except KeyError:
                         rotation = Quaternion()
+                    # TODO: remove this
+                    # rotation = frame.bone_channels[bone.name].rotation
+
                     position = bone.animation_size_delta
 
                     if i == 0:
@@ -295,7 +306,8 @@ class BedrockModelExporter:
         g.write('{'
                 '\n"format_version": "1.8.0",'
                 '\n"animations": '
-                '{\n"' + animation_name + '": {\n"animation_length": ' + str(math.ceil(self.animation_length)) + ',\n"bones": {\n')
+                '{\n"' + animation_name + '": {\n"animation_length": ' + str(
+            math.ceil(self.animation_length)) + ',\n"bones": {\n')
 
         l_1 = len(self.animation) - 1
         for i, bone_name in enumerate(self.animation):
@@ -466,8 +478,8 @@ if __name__ == '__main__':
     ]
 
     b.create_geo_model(armature, visible_bones, {'Hip'})
-    b.write_geo_model('C://Users//Hanmin//Desktop', 'model',
+    b.write_geo_model('C://Users//Hanmin//Desktop', 'model2',
                       BedrockModelHeader('1.12.0', 'geometry.unknown', (16, 16), (11, 3), Vector3(0.0, 0.0, 0.0)))
 
     b.create_animation(animation)
-    b.write_animation('C://Users//Hanmin//Desktop', 'test', 'animation.model.new')
+    b.write_animation('C://Users//Hanmin//Desktop', 'test2', 'animation.model.new')
