@@ -17,14 +17,72 @@ class VisibleBones:
         self.armature = armature
 
     def add_bones(self, bone_list: list[tuple[Optional[str], Optional[Union[Vector3, str]], Vector3, Vector3, Any]]):
-        self.visible_bones
+
+        # Fill in missing bone information
+        vector_child_count = 0
+        for i in range(len(bone_list)):
+            # give parent to parentless children
+            if bone_list[i][0] is None:
+                # bone_list[i] = tuple(
+                #     (self.armature.bones[bone_list[i][1]].parent.name, *bone_list[i][1:]))
+
+                end_bone = self.armature.bones[bone_list[i][1]]
+                end_bone.additional_info = bone_list[i][4]
+                end_bone.parent = end_bone.parent.name
+
+                bone_name = bone_list[i][1]
+                self.visible_bones[bone_name] = end_bone
+
+            elif type(bone_list[i][1]) is str:
+                end_bone = self.armature.bones[bone_list[i][1]]
+                end_bone.additional_info = bone_list[i][4]
+
+                bone_name = bone_list[i][1]
+                self.visible_bones[bone_name] = end_bone
+            else:
+                # give child to childless parent
+                bone_name = bone_list[i][0] + '_vector_child_' + str(vector_child_count)
+                end_bone = Bone(bone_name)
+                end_bone.additional_info = bone_list[i][4]
+                self.armature.add_bone(end_bone, bone_list[i][0])
+
+                self.visible_bones[bone_name] = end_bone
+
+                # bone_list[i] = (bone_list[i][0], bone_name, *bone_list[i][2:])
+
+                vector_child_count += 1
+
+            end_bone.model_size = bone_list[i][2]
+            end_bone.original_size.scale_to(bone_list[i][2].magnitude())
+            end_bone.pivot = bone_list[i][3]
+            end_bone.model_size_to_original = Quaternion().between_vectors(end_bone.model_size, end_bone.original_size)
 
     def create_bones(self, bone_set: set):
         raise NotImplementedError
 
     def fill_bones(self):
-        self.armature.bones
         pass
+
+    def format(self)->tuple[set,set]:
+        keep = set()
+        positional = set()
+        for visible_bone_name in self.visible_bones:
+            keep.add(visible_bone_name)
+            keep.add(self.visible_bones[visible_bone_name].parent.name)
+
+
+        def dfs_add_positional(bone: Bone):
+            for child in bone.children:
+                dfs_add_positional(child)
+
+                if child.name in positional and bone.name not in keep:
+                    positional.add(bone.name)
+
+        dfs_add_positional(self.armature.root)
+
+        return keep, positional
+
+
 
 
 
@@ -55,61 +113,41 @@ class ArmaturePreparer:
         self.positional = translation_fix_bones.copy()
         self.rotational = set()
 
-        vector_child_count = 0
+        k, p = visible_bone_object.format()
+        self.keep.update(k)
+        self.positional.update(p)
+
+
 
         # loop through all the defined visible_bones, fill in parent information where missing, and if child is
         # vector, create a new bone.
 
-        # TODO: remove this, this is horrible
-        visible_bones = visible_bone_object.visible_bones
-
-        # Fill in missing bone information
-        for i in range(len(visible_bones)):
-            # give parent to parentless children
-            if visible_bones[i][0] is None:
-                visible_bones[i] = tuple((self.original_armature.bones[visible_bones[i][1]].parent.name, *visible_bones[i][1:]))
-
-            if type(visible_bones[i][1]) is str:
-                end_bone = self.original_armature.bones[visible_bones[i][1]]
-                end_bone.additional_info = visible_bones[i][4]
-                bone_name = visible_bones[i][1]
-            else:
-                # give child to childless parent
-                bone_name = visible_bones[i][0] + '_vector_child_' + str(vector_child_count)
-                end_bone = Bone(bone_name)
-                end_bone.additional_info = visible_bones[i][4]
-                self.original_armature.add_bone(end_bone, visible_bones[i][0])
-
-                visible_bones[i] = (visible_bones[i][0], bone_name, *visible_bones[i][2:])
-
-                vector_child_count += 1
-
         # figure out which bones to keep
 
-        for visible_bone in visible_bones:
-            bone_name = visible_bone[1]
-            end_bone = self.original_armature.bones[bone_name]
-
-            self.keep.add(bone_name)
-            self.keep.add(visible_bone[0])
-
-        def dfs_add_positional(bone: Bone):
-            for child in bone.children:
-                dfs_add_positional(child)
-
-                if child.name in self.positional and bone.name not in self.keep:
-                    self.positional.add(bone.name)
-
-        dfs_add_positional(self.original_armature.root)
-
-        # set size and offset of visible bones as needed
-        for visible_bone in visible_bones:
-            bone = self.original_armature.bones[visible_bone[1]]
-            bone.model_size = visible_bone[2]
-            bone.original_size.scale_to(visible_bone[2].magnitude())
-
-            bone.pivot = visible_bone[3]
-            bone.model_size_to_original = Quaternion().between_vectors(bone.model_size, bone.original_size)
+        # for visible_bone in visible_bones:
+        #     bone_name = visible_bone[1]
+        #     # end_bone = self.original_armature.bones[bone_name]
+        #
+        #     self.keep.add(bone_name)
+        #     self.keep.add(visible_bone[0])
+        #
+        # def dfs_add_positional(bone: Bone):
+        #     for child in bone.children:
+        #         dfs_add_positional(child)
+        #
+        #         if child.name in self.positional and bone.name not in self.keep:
+        #             self.positional.add(bone.name)
+        #
+        # dfs_add_positional(self.original_armature.root)
+        #
+        # # set size and offset of visible bones as needed
+        # for visible_bone in visible_bones:
+        #     bone = self.original_armature.bones[visible_bone[1]]
+        #     bone.model_size = visible_bone[2]
+        #     bone.original_size.scale_to(visible_bone[2].magnitude())
+        #
+        #     bone.pivot = visible_bone[3]
+        #     bone.model_size_to_original = Quaternion().between_vectors(bone.model_size, bone.original_size)
 
     def original_armature_pruned(self) -> Armature:
         """Return a pruned version of the armature without any animation."""
@@ -423,7 +461,8 @@ class BedrockModelExporter:
 if __name__ == '__main__':
     from import_file import load_bvh
 
-    a = load_bvh('data/nikkori/nene.bvh', 2.0, max_frames=10)
+    # a = load_bvh('data/nikkori/nene.bvh', 2.0, max_frames=10)
+    a = load_bvh('data/nikkori/nene.bvh', 2.0)
     armature, animation = a
 
     b = BedrockModelExporter()
