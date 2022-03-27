@@ -271,11 +271,6 @@ class Armature:
                 r = bone.name in rotational
             if bone is not self.root:
                 bone.delocalize(p, r)
-                # if bone.name not in keep:
-                #     self.remove_bone(bone, p, r)
-                # else:
-                #     if bone.parent.name not in keep:
-                #         bone.delocalize(p, r)
 
             for child in save_children:
                 dfs(child)
