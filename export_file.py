@@ -55,7 +55,7 @@ class VisibleBones:
             # new_bone.model_size = Vector3(0.0, -new_bone.original_size.magnitude() * 16, 0.0)
             model_magnitude = 16 * new_bone.original_size.magnitude()
 
-            new_bone.additional_info = DisplayVoxel(Vector3(-0.5, -model_magnitude-0.5, -0.5), Vector3(1.0, model_magnitude, 1.0))
+            new_bone.additional_info = DisplayVoxel(Vector3(-0.5, 0.5-model_magnitude, -0.5), Vector3(1.0, model_magnitude, 1.0))
             new_bone.model_size = Vector3(0.0, -model_magnitude, 0.0)
 
             new_bone.model_size_to_original = Quaternion().between_vectors(new_bone.model_size, new_bone.original_size)
