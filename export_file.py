@@ -211,6 +211,7 @@ class BedrockModelExporter:
     animation: Optional[dict[str: list[tuple[float, Vector3, Quaternion]]]]
     animation_length: Optional[Union[float, int]]
     visible_bones: Optional[set[str]]
+    translation_fix_bones: Optional[set]
 
     def __init__(self):
         self.ap = None
@@ -219,6 +220,7 @@ class BedrockModelExporter:
         self.animation = None
         self.animation_length = None
         self.visible_bones = None
+        self.translation_fix_bones = None
 
     def write_geo_model(self, path: str, file_name: str, model_header: BedrockModelHeader):
         # third round, probably wouldn't have to if we dfsed
@@ -280,8 +282,9 @@ class BedrockModelExporter:
 
     def create_geo_model(self, armature: Armature, visible_bones: VisibleBones,
                          translation_fix_bones: Optional[set[str]]):
+        self.translation_fix_bones = translation_fix_bones
 
-        self.ap = ArmaturePreparer(armature, visible_bones, translation_fix_bones)
+        self.ap = ArmaturePreparer(armature, visible_bones, self.translation_fix_bones)
 
         self.model = self.ap.original_armature_pruned()
 
@@ -308,8 +311,10 @@ class BedrockModelExporter:
                         rotation = frame.bone_channels[bone.parent.name].rotation
                     except KeyError:
                         rotation = Quaternion()
-
-                    position = bone.animation_size_delta
+                    if bone.name in self.translation_fix_bones:
+                        position = bone.animation_size_delta
+                    else:
+                        position = Vector3(0.0, 0.0, 0.0)
 
                     if i == 0:
                         self.animation[bone.name] = []
@@ -432,7 +437,9 @@ if __name__ == '__main__':
     from import_file import load_bvh
 
     # a = load_bvh('data/nikkori/nene.bvh', 2.0, max_frames=10)
-    a = load_bvh('data/nikkori/nene.bvh', 2.0)
+    # a = load_bvh('data/nikkori/nene.bvh', 2.0)
+
+    a = load_bvh('data/cursed/cursed4.bvh', 2.0, 'zxy')
     armature, animation = a
 
     b = BedrockModelExporter()
@@ -500,14 +507,81 @@ if __name__ == '__main__':
          DisplayVoxel(Vector3(-2.0, -6.0, 0.0), Vector3(4.0, 6.0, 4.0))
          )
     ]
-    visible_bones.add_bones(visible_bone_list)
+
+    visible_bone_list2 = [
+        ('Neck',
+         'Head',
+         Vector3(0.0, 8.0, 0.0),
+         Vector3(0.0, 0.0, 0.0),
+         DisplayVoxel(Vector3(-4.0, 0.0, -4.0), Vector3(8.0, 8.0, 8.0))
+         ),
+        ('Spine',
+         'Chest',
+         Vector3(0.0, 12.0, 0.0),
+         Vector3(0.0, -1.0, 0.0),
+         DisplayVoxel(Vector3(-4.0, 0.0, -2.0), Vector3(8.0, 12.0, 4.0))
+         ),
+        ('RightUpperArm',
+         'RightLowerArm',
+         Vector3(0.0, -5.0, 0.0),
+         Vector3(-4.0, -1.0, 0.0),
+         DisplayVoxel(Vector3(-4.0, -5.0, -2.0), Vector3(4.0, 6.0, 4.0))
+         ),
+        ('RightLowerArm',
+         'RightHand',
+         Vector3(0.0, -4.0, 0.0),
+         Vector3(0.0, 0.0, 0.0),
+         DisplayVoxel(Vector3(-4.0, -6.0, -2.0), Vector3(4.0, 6.0, 4.0))
+         ),
+        ('LeftUpperArm',
+         'LeftLowerArm',
+         Vector3(0.0, -5.0, 0.0),
+         Vector3(4.0, -1.0, 0.0),
+         DisplayVoxel(Vector3(0.0, -5.0, -2.0), Vector3(4.0, 6.0, 4.0))
+         ),
+        ('LeftLowerArm',
+         'LeftHand',
+         Vector3(0.0, -4.0, 0.0),
+         Vector3(0.0, 0.0, 0.0),
+         DisplayVoxel(Vector3(0.0, -6.0, -2.0), Vector3(4.0, 6.0, 4.0))
+         ),
+        ('RightUpperLeg',
+         'RightLowerLeg',
+         Vector3(0.0, -6.5, 0.0),
+         Vector3(-2.0, 0.0, 0.0),
+         DisplayVoxel(Vector3(-2.0, -6.5, -2.0), Vector3(4.0, 6.0, 4.0))
+         ),
+        ('RightLowerLeg',
+         'RightFoot',
+         Vector3(0.0, -6.0, 0.0),
+         Vector3(0.0, 0.0, -2.0),
+         DisplayVoxel(Vector3(-2.0, -6.0, 0.0), Vector3(4.0, 6.0, 4.0))
+         ),
+        ('LeftUpperLeg',
+         'LeftLowerLeg',
+         Vector3(0.0, -6.5, 0.0),
+         Vector3(2.0, 0.0, 0.0),
+         DisplayVoxel(Vector3(-2.0, -6.5, -2.0), Vector3(4.0, 6.0, 4.0))
+         ),
+        ('LeftLowerLeg',
+         'LeftFoot',
+         Vector3(0.0, -6.0, 0.0),
+         Vector3(0.0, 0.0, -2.0),
+         DisplayVoxel(Vector3(-2.0, -6.0, 0.0), Vector3(4.0, 6.0, 4.0))
+         )
+    ]
+    # visible_bones.add_bones(visible_bone_list)
+    # visible_bones.create_bones({'Hip'})
+    visible_bones.add_bones(visible_bone_list2)
     # visible_bones.fill_bones()
     # visible_bones.create_bones({'Head','Spine','Right_Elbow','Right_Wrist','Left_Elbow','Left_Wrist','Right_Knee','Right_Ankle','Left_Knee','Left_Ankle'})
 
     # vb2 = VisibleBones(armature.copy())
     # vb2.create_bones({'Head','Spine','Right_Elbow','Right_Wrist','Left_Elbow','Left_Wrist','Right_Knee','Right_Ankle','Left_Knee','Left_Ankle'})
 
-    b.create_geo_model(armature, visible_bones, {'PositionOffset', 'Hip'})
+    # b.create_geo_model(armature, visible_bones, {'PositionOffset', 'Hip'})
+    # b.create_geo_model(armature, visible_bones, set())
+    b.create_geo_model(armature, visible_bones, {'Hips'})
     b.write_geo_model('C://Users//Hanmin//Desktop', 'model',
                       BedrockModelHeader('1.12.0', 'geometry.unknown', (16, 16), (11, 3), Vector3(0.0, 0.0, 0.0)))
 

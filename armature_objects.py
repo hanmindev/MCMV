@@ -14,6 +14,8 @@ class Bone:
     parent: Optional[Bone]
     children: list[Bone]
 
+    channels: list[str]
+
     pivot_offset: Vector3
     pivot: Vector3
 
@@ -32,6 +34,8 @@ class Bone:
         self.name = name
         self.parent = None
         self.children = []
+
+        self.channels = []
 
         # default pose stuff
         self.pivot_offset = Vector3(0.0, 0.0, 0.0)

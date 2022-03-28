@@ -41,7 +41,6 @@ def load_bvh(file_path: str, scale: float, order: str = 'xyz', max_frames: int =
 
                 elif words[0] == 'ROOT' or words[0] == 'JOINT' or words[0] == 'End':
                     if words[0] == 'End':
-                        # TODO bone_name = 'End Site_' + current_bone_data[0]
                         bone_name = 'mcf_End Site_' + bone_name
                     else:
                         bone_name = ' '.join(words[1:len(words)])
@@ -64,7 +63,9 @@ def load_bvh(file_path: str, scale: float, order: str = 'xyz', max_frames: int =
                     new_bone.original_size = offset
 
                 elif words[0] == 'CHANNELS':
-                    pass
+                    amount = words[1]
+                    channels = words[2:]
+                    new_bone.channels = channels
 
                 if len(parent_name_stack) == 0 and len(new_armature.bones) > 2:
                     mode = 1
@@ -96,16 +97,29 @@ def load_bvh(file_path: str, scale: float, order: str = 'xyz', max_frames: int =
                                 continue
                             bone = new_armature.bones[bone_name]
 
-                            # TODO should we account for .bvh files that do not have 6 channels
-
-                            index_end = index_start + 6
-
+                            index_end = index_start + len(bone.channels)
+                            x_pos, y_pos, z_pos = None, None, None
                             # read channels
-                            x_pos, y_pos, z_pos, x_rot, y_rot, z_rot = tuple(map(float, words[index_start:index_end]))
-
-                            # set position
-                            offset = Vector3(x_pos, y_pos, z_pos) * scale
-                            offset.rotate_by_quaternion(face_north)
+                            for i, channel_name in enumerate(bone.channels):
+                                value = float(words[index_start+i])
+                                if channel_name == 'Xposition':
+                                    x_pos = value
+                                elif channel_name == 'Yposition':
+                                    y_pos = value
+                                elif channel_name == 'Zposition':
+                                    z_pos = value
+                                elif channel_name == 'Xrotation':
+                                    x_rot = value
+                                elif channel_name == 'Yrotation':
+                                    y_rot = value
+                                elif channel_name == 'Zrotation':
+                                    z_rot = value
+                            if x_pos is not None:
+                                # set position
+                                offset = Vector3(x_pos, y_pos, z_pos) * scale
+                                offset.rotate_by_quaternion(face_north)
+                            else:
+                                offset = Vector3(0.0, 0.0, 0.0)
 
                             # set rotation
                             rotation = Quaternion().set_from_euler(Euler(order, x_rot, y_rot, z_rot))
