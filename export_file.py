@@ -7,9 +7,10 @@ from typing import Optional, Union, Any
 
 import utility
 from math_objects import Vector3, Quaternion, Euler
-from armature import Armature, Bone, ArmatureFrame, ArmatureAnimation
+from armature_objects import Armature, Bone, ArmatureFrame, ArmatureAnimation
 # from minecraft import AecArmorStandPair
 from utility import tuple_to_m_list
+
 
 class VisibleBones:
     def __init__(self, armature: Armature):
@@ -17,31 +18,21 @@ class VisibleBones:
         self.armature = armature
 
     def add_bones(self, bone_list: list[tuple[Optional[str], Optional[Union[Vector3, str]], Vector3, Vector3, Any]]):
-
         # Fill in missing bone information
         vector_child_count = 0
         for i in range(len(bone_list)):
-            # give parent to parentless children
-            if bone_list[i][0] is None:
-                # bone_list[i] = tuple(
-                #     (self.armature.bones[bone_list[i][1]].parent.name, *bone_list[i][1:]))
-
-                end_bone = self.armature.bones[bone_list[i][1]]
-                end_bone.additional_info = bone_list[i][4]
-                end_bone.parent = end_bone.parent.name
-
+            if bone_list[i][0] is None or type(bone_list[i][1]) is str:
+                # normal bone
                 bone_name = bone_list[i][1]
-                self.visible_bones[bone_name] = end_bone
 
-            elif type(bone_list[i][1]) is str:
-                end_bone = self.armature.bones[bone_list[i][1]]
+                end_bone = self.armature.bones[bone_name]
                 end_bone.additional_info = bone_list[i][4]
 
-                bone_name = bone_list[i][1]
                 self.visible_bones[bone_name] = end_bone
             else:
                 # give child to childless parent
                 bone_name = bone_list[i][0] + '_vector_child_' + str(vector_child_count)
+
                 end_bone = Bone(bone_name)
                 end_bone.additional_info = bone_list[i][4]
                 self.armature.add_bone(end_bone, bone_list[i][0])
@@ -58,18 +49,31 @@ class VisibleBones:
             end_bone.model_size_to_original = Quaternion().between_vectors(end_bone.model_size, end_bone.original_size)
 
     def create_bones(self, bone_set: set):
-        raise NotImplementedError
+        for new_bone_name in bone_set:
+            new_bone = self.armature.bones[new_bone_name]
+
+            # new_bone.model_size = Vector3(0.0, -new_bone.original_size.magnitude() * 16, 0.0)
+            model_magnitude = 16 * new_bone.original_size.magnitude()
+
+            new_bone.additional_info = DisplayVoxel(Vector3(-0.5, -model_magnitude-0.5, -0.5), Vector3(1.0, model_magnitude, 1.0))
+            new_bone.model_size = Vector3(0.0, -model_magnitude, 0.0)
+
+            new_bone.model_size_to_original = Quaternion().between_vectors(new_bone.model_size, new_bone.original_size)
+
+            self.visible_bones[new_bone_name] = new_bone
 
     def fill_bones(self):
-        pass
+        new_bone_set = set(self.armature.bones.keys()).difference(set(self.visible_bones.keys()))
+        self.create_bones(new_bone_set)
 
-    def format(self)->tuple[set,set]:
+    def format(self) -> tuple[set, set]:
         keep = set()
         positional = set()
         for visible_bone_name in self.visible_bones:
+            if visible_bone_name == self.armature.root.name:
+                continue
             keep.add(visible_bone_name)
             keep.add(self.visible_bones[visible_bone_name].parent.name)
-
 
         def dfs_add_positional(bone: Bone):
             for child in bone.children:
@@ -83,10 +87,6 @@ class VisibleBones:
         return keep, positional
 
 
-
-
-
-
 class DisplayVoxel:
     def __init__(self, offset: Vector3, size: Vector3):
         self.offset = offset
@@ -94,6 +94,7 @@ class DisplayVoxel:
 
     def copy(self):
         return DisplayVoxel(self.offset.copy(), self.size.copy())
+
 
 class ArmaturePreparer:
     """Prepares an armature for export.
@@ -115,39 +116,7 @@ class ArmaturePreparer:
 
         k, p = visible_bone_object.format()
         self.keep.update(k)
-        self.positional.update(p)
-
-
-
-        # loop through all the defined visible_bones, fill in parent information where missing, and if child is
-        # vector, create a new bone.
-
-        # figure out which bones to keep
-
-        # for visible_bone in visible_bones:
-        #     bone_name = visible_bone[1]
-        #     # end_bone = self.original_armature.bones[bone_name]
-        #
-        #     self.keep.add(bone_name)
-        #     self.keep.add(visible_bone[0])
-        #
-        # def dfs_add_positional(bone: Bone):
-        #     for child in bone.children:
-        #         dfs_add_positional(child)
-        #
-        #         if child.name in self.positional and bone.name not in self.keep:
-        #             self.positional.add(bone.name)
-        #
-        # dfs_add_positional(self.original_armature.root)
-        #
-        # # set size and offset of visible bones as needed
-        # for visible_bone in visible_bones:
-        #     bone = self.original_armature.bones[visible_bone[1]]
-        #     bone.model_size = visible_bone[2]
-        #     bone.original_size.scale_to(visible_bone[2].magnitude())
-        #
-        #     bone.pivot = visible_bone[3]
-        #     bone.model_size_to_original = Quaternion().between_vectors(bone.model_size, bone.original_size)
+        # self.positional.update(p)
 
     def original_armature_pruned(self) -> Armature:
         """Return a pruned version of the armature without any animation."""
@@ -161,7 +130,7 @@ class ArmaturePreparer:
         self.animated_armature.import_frame(frame)
         # copy rotation if parent is not in keep
 
-        self.animated_armature.prune_bones_filtered(self.keep, self.positional, True)
+        self.animated_armature.prune_bones_filtered(self.keep, False, True)
 
         return self.animated_armature
 
@@ -461,12 +430,13 @@ class BedrockModelExporter:
 if __name__ == '__main__':
     from import_file import load_bvh
 
-    # a = load_bvh('data/nikkori/nene.bvh', 2.0, max_frames=10)
-    a = load_bvh('data/nikkori/nene.bvh', 2.0)
+    a = load_bvh('data/nikkori/nene.bvh', 2.0, max_frames=10)
+    # a = load_bvh('data/nikkori/nene.bvh', 2.0)
     armature, animation = a
 
     b = BedrockModelExporter()
 
+    visible_bones = VisibleBones(armature)
     visible_bone_list = [
         ('Neck',
          'Head',
@@ -529,13 +499,16 @@ if __name__ == '__main__':
          DisplayVoxel(Vector3(0.0, -6.0, 0.0), Vector3(4.0, 6.0, 4.0))
          )
     ]
-    visible_bones = VisibleBones(armature)
-    visible_bones.add_bones(visible_bone_list)
+    # visible_bones.add_bones(visible_bone_list)
+    visible_bones.fill_bones()
+    # visible_bones.create_bones({'Head','Spine','Right_Elbow','Right_Wrist','Left_Elbow','Left_Wrist','Right_Knee','Right_Ankle','Left_Knee','Left_Ankle'})
 
+    # vb2 = VisibleBones(armature.copy())
+    # vb2.create_bones({'Head','Spine','Right_Elbow','Right_Wrist','Left_Elbow','Left_Wrist','Right_Knee','Right_Ankle','Left_Knee','Left_Ankle'})
 
     b.create_geo_model(armature, visible_bones, {'Hip'})
-    b.write_geo_model('C://Users//Hanmin//Desktop', 'model2',
+    b.write_geo_model('C://Users//Hanmin//Desktop', 'model',
                       BedrockModelHeader('1.12.0', 'geometry.unknown', (16, 16), (11, 3), Vector3(0.0, 0.0, 0.0)))
 
     b.create_animation(animation)
-    b.write_animation('C://Users//Hanmin//Desktop', 'test2', 'animation.model.new')
+    b.write_animation('C://Users//Hanmin//Desktop', 'test', 'animation.model.new')

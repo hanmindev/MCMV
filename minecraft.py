@@ -1,4 +1,4 @@
-from armature import Bone
+from armature_objects import Bone
 
 class AecArmorStandPair:
     """A class describing an AEC-ArmorStand pair.

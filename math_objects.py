@@ -372,6 +372,10 @@ class Vector3:
       - j: The i component of the vector.
       - k: The i component of the vector.
     """
+    i: float
+    j: float
+    k: float
+
     def __init__(self, i: float, j: float, k: float):
         """Create a new Vector3 object.
 

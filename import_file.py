@@ -1,7 +1,7 @@
 from typing import Union
 
 from math_objects import Vector3, Quaternion, Euler
-from armature import Armature, ArmatureFrame, ArmatureAnimation, Bone, ArmatureFrameBone
+from armature_objects import Armature, ArmatureFrame, ArmatureAnimation, Bone, ArmatureFrameBone
 
 import math
 
