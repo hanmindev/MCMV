@@ -101,7 +101,7 @@ def load_bvh(file_path: str, scale: float, order: str = 'xyz', max_frames: int =
                             x_pos, y_pos, z_pos = None, None, None
                             # read channels
                             for i, channel_name in enumerate(bone.channels):
-                                value = float(words[index_start+i])
+                                value = float(words[index_start + i])
                                 if channel_name == 'Xposition':
                                     x_pos = value
                                 elif channel_name == 'Yposition':
