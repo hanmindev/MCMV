@@ -48,15 +48,19 @@ class VisibleBones:
             end_bone.pivot = bone_list[i][3]
             end_bone.model_size_to_original = Quaternion().between_vectors(end_bone.model_size, end_bone.original_size)
 
-    def create_bones(self, bone_set: set):
+    def create_bones(self, bone_set: set, scale: Union[float, int]=1.0):
         for new_bone_name in bone_set:
             new_bone = self.armature.bones[new_bone_name]
 
-            # new_bone.model_size = Vector3(0.0, -new_bone.original_size.magnitude() * 16, 0.0)
-            model_magnitude = 16 * new_bone.original_size.magnitude()
+            model_magnitude = scale * 16 * new_bone.original_size.magnitude()
 
-            new_bone.additional_info = DisplayVoxel(Vector3(-0.5, 0.5-model_magnitude, -0.5), Vector3(1.0, model_magnitude, 1.0))
-            new_bone.model_size = Vector3(0.0, -model_magnitude, 0.0)
+            if model_magnitude != 0:
+                if new_bone.original_size.normalized().dot_prod(Vector3(0.0, 1.0, 0.0)) > 0:
+                    new_bone.additional_info = DisplayVoxel(Vector3(-0.5, -0.5, -0.5), Vector3(1.0, model_magnitude, 1.0))
+                    new_bone.model_size = Vector3(0.0, model_magnitude, 0.0)
+                else:
+                    new_bone.additional_info = DisplayVoxel(Vector3(-0.5, 0.5-model_magnitude, -0.5), Vector3(1.0, model_magnitude, 1.0))
+                    new_bone.model_size = Vector3(0.0, -model_magnitude, 0.0)
 
             new_bone.model_size_to_original = Quaternion().between_vectors(new_bone.model_size, new_bone.original_size)
 
@@ -299,9 +303,6 @@ class BedrockModelExporter:
             frame_time = i / self.fps
 
             def dfs(bone: Bone):
-                if bone.name == 'Left_Ankle':
-                    pass
-
                 if not bone.name[0:9] == 'mcf_root_':
                     try:
                         rotation = frame.bone_channels[bone.parent.name].rotation
@@ -430,8 +431,8 @@ class BedrockModelExporter:
 if __name__ == '__main__':
     from import_file import load_bvh
 
-    a = load_bvh('data/nikkori/nene.bvh', 2.0, max_frames=10)
-    # a = load_bvh('data/nikkori/nene.bvh', 2.0)
+    # a = load_bvh('data/nikkori/nene.bvh', 2.0, max_frames=10)
+    a = load_bvh('data/nikkori/nene.bvh', 2.0)
     armature, animation = a
 
     b = BedrockModelExporter()
@@ -477,36 +478,36 @@ if __name__ == '__main__':
         ('Right_Thigh',
          'Right_Knee',
          Vector3(0.0, -6.5, 0.0),
-         Vector3(-4.0, 0.0, 0.0),
-         DisplayVoxel(Vector3(0.0, -6.5, -2.0), Vector3(4.0, 6.0, 4.0))
+         Vector3(-2.0, 0.0, 0.0),
+         DisplayVoxel(Vector3(-2.0, -6.5, -2.0), Vector3(4.0, 6.0, 4.0))
          ),
         ('Right_Knee',
          'Right_Ankle',
          Vector3(0.0, -6.0, 0.0),
          Vector3(0.0, 0.0, -2.0),
-         DisplayVoxel(Vector3(0.0, -6.0, 0.0), Vector3(4.0, 6.0, 4.0))
+         DisplayVoxel(Vector3(-2.0, -6.0, 0.0), Vector3(4.0, 6.0, 4.0))
          ),
         ('Left_Thigh',
          'Left_Knee',
          Vector3(0.0, -6.5, 0.0),
-         Vector3(0.0, 0.0, 0.0),
-         DisplayVoxel(Vector3(0.0, -6.5, -2.0), Vector3(4.0, 6.0, 4.0))
+         Vector3(2.0, 0.0, 0.0),
+         DisplayVoxel(Vector3(-2.0, -6.5, -2.0), Vector3(4.0, 6.0, 4.0))
          ),
         ('Left_Knee',
          'Left_Ankle',
          Vector3(0.0, -6.0, 0.0),
          Vector3(0.0, 0.0, -2.0),
-         DisplayVoxel(Vector3(0.0, -6.0, 0.0), Vector3(4.0, 6.0, 4.0))
+         DisplayVoxel(Vector3(-2.0, -6.0, 0.0), Vector3(4.0, 6.0, 4.0))
          )
     ]
-    # visible_bones.add_bones(visible_bone_list)
-    visible_bones.fill_bones()
+    visible_bones.add_bones(visible_bone_list)
+    # visible_bones.fill_bones()
     # visible_bones.create_bones({'Head','Spine','Right_Elbow','Right_Wrist','Left_Elbow','Left_Wrist','Right_Knee','Right_Ankle','Left_Knee','Left_Ankle'})
 
     # vb2 = VisibleBones(armature.copy())
     # vb2.create_bones({'Head','Spine','Right_Elbow','Right_Wrist','Left_Elbow','Left_Wrist','Right_Knee','Right_Ankle','Left_Knee','Left_Ankle'})
 
-    b.create_geo_model(armature, visible_bones, {'Hip'})
+    b.create_geo_model(armature, visible_bones, {'PositionOffset', 'Hip'})
     b.write_geo_model('C://Users//Hanmin//Desktop', 'model',
                       BedrockModelHeader('1.12.0', 'geometry.unknown', (16, 16), (11, 3), Vector3(0.0, 0.0, 0.0)))
 
