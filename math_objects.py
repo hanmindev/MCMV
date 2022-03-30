@@ -12,7 +12,7 @@ class Euler:
       - y: Rotation along the local y-axis (degrees)
       - z: Rotation along the local z-axis (degrees)
     """
-    def __init__(self, order: str, x: float = None, y: float = None, z: float = None) -> None:
+    def __init__(self, order: str, x: float = 0.0, y: float = 0.0, z: float = 0.0) -> None:
         """Create a new Euler object.
             order: Euler rotation order.
             x: Rotation along the local x-axis (degrees)

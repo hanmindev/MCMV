@@ -1,12 +1,193 @@
 from __future__ import annotations
 import math
+import json
+import os
 
 from typing import Optional, Any, Union
 
 from math_objects import Quaternion, Vector3
 
-
 # from minecraft import AecArmorStandPair
+
+FORMAT_VERSION = 1.0
+
+
+class VisibleBones:
+    visible_bones: dict[str, Bone]
+    armature: Armature
+    pose_to_input: bool
+    bone_list: list[tuple[str, str, Vector3, Vector3, Optional[list[str]], DisplayVoxel]]
+    pre_rotate: set[str]
+
+    def __init__(self, armature: Armature, pose_to_input: bool = False):
+        self.visible_bones = {}
+        self.armature = armature
+        self.pose_to_input = pose_to_input
+        self.pre_rotate = set()
+        self.bone_list = []
+
+    def add_bones(self, bone_list: list[
+        tuple[Optional[str], Optional[Union[Vector3, str]], Vector3, Vector3, Optional[list[str]], DisplayVoxel]]):
+        # Fill in missing bone information
+        vector_child_count = 0
+        for i in range(len(bone_list)):
+            if bone_list[i][0] is None or type(bone_list[i][1]) is str:
+                # normal bone
+                bone_name = bone_list[i][1]
+
+                end_bone = self.armature.bones[bone_name]
+                end_bone.bone_lock = bone_list[i][4]
+                end_bone.bone_display = bone_list[i][5]
+
+                self.visible_bones[bone_name] = end_bone
+            else:
+                # give child to childless parent
+                bone_name = bone_list[i][0] + '_vector_child_' + str(vector_child_count)
+
+                end_bone = Bone(bone_name)
+                end_bone.bone_lock = bone_list[i][4]
+                end_bone.bone_display = bone_list[i][5]
+                self.armature.add_bone(end_bone, bone_list[i][0])
+
+                self.visible_bones[bone_name] = end_bone
+
+                vector_child_count += 1
+
+            if end_bone.bone_lock is None:
+                end_bone.bone_lock = []
+
+            end_bone.model_size = bone_list[i][2]
+            end_bone.original_size.scale_to(bone_list[i][2].magnitude())
+            end_bone.pivot = bone_list[i][3]
+            end_bone.model_size_to_original = Quaternion().between_vectors(end_bone.model_size, end_bone.original_size)
+
+            self.bone_list.append((end_bone.parent.name, end_bone.name, end_bone.model_size, end_bone.pivot,
+                                   end_bone.bone_lock, end_bone.bone_display))
+
+            if self.pose_to_input:
+                self.pre_rotate.add(end_bone.name)
+
+    def create_bones(self, bone_set: set, scale: Union[float, int] = 1.0):
+        for new_bone_name in bone_set:
+            end_bone = self.armature.bones[new_bone_name]
+            if end_bone is self.armature.root:
+                continue
+
+            model_magnitude = scale * 16 * end_bone.original_size.magnitude()
+
+            if model_magnitude != 0:
+                if end_bone.original_size.normalized().dot_prod(Vector3(0.0, 1.0, 0.0)) > 0:
+                    end_bone.bone_display = DisplayVoxel(Vector3(-0.5, -0.5, -0.5), Vector3(1.0, model_magnitude, 1.0))
+                    end_bone.model_size = Vector3(0.0, model_magnitude, 0.0)
+                else:
+                    end_bone.bone_display = DisplayVoxel(Vector3(-0.5, 0.5 - model_magnitude, -0.5),
+                                                         Vector3(1.0, model_magnitude, 1.0))
+                    end_bone.model_size = Vector3(0.0, -model_magnitude, 0.0)
+
+            end_bone.model_size_to_original = Quaternion().between_vectors(end_bone.model_size, end_bone.original_size)
+
+            self.bone_list.append((end_bone.parent.name, end_bone.name, end_bone.model_size, end_bone.pivot,
+                                   end_bone.bone_lock, end_bone.bone_display))
+
+            self.visible_bones[new_bone_name] = end_bone
+
+            if self.pose_to_input:
+                self.pre_rotate.add(end_bone.name)
+
+    def fill_bones(self):
+        new_bone_set = set(self.armature.bones.keys()).difference(set(self.visible_bones.keys()))
+        self.create_bones(new_bone_set)
+
+    def format(self) -> tuple[set, set]:
+        keep = set()
+        positional = set()
+        for visible_bone_name in self.visible_bones:
+            if visible_bone_name == self.armature.root.name:
+                continue
+            keep.add(visible_bone_name)
+            keep.add(self.visible_bones[visible_bone_name].parent.name)
+
+        def dfs_add_positional(bone: Bone):
+            for child in bone.children:
+                dfs_add_positional(child)
+
+                if child.name in positional and bone.name not in keep:
+                    positional.add(bone.name)
+
+        dfs_add_positional(self.armature.root)
+
+        return keep, positional
+
+    def export_json(self, path: str, file_name: str):
+        complete_path = os.path.join(path, file_name + ".json")
+        open(complete_path, 'w').close()
+        f = open(complete_path, "a", encoding="utf-8")
+
+        json_dict = {'format_version': FORMAT_VERSION, 'visible_bones': []}
+        for bone_info in self.bone_list:
+            current_bone_dict = {
+                'parent_name': bone_info[0],
+                'name': bone_info[1],
+                'model_size': bone_info[2].to_tuple(),
+                'pivot': bone_info[3].to_tuple(),
+                'bone_lock': bone_info[4]
+            }
+            if bone_info[5] is not None:
+                bone_offset = bone_info[5].offset.to_tuple()
+                bone_size = bone_info[5].size.to_tuple()
+                if bone_offset is not None or bone_size is not None:
+                    current_bone_dict['bone_display'] = {}
+
+                if bone_offset is not None:
+                    current_bone_dict['bone_display']['offset'] = bone_offset
+                if bone_size is not None:
+                    current_bone_dict['bone_display']['size'] = bone_size
+
+            json_dict['visible_bones'].append(current_bone_dict)
+
+        json.dump(json_dict, f, indent=4)
+
+    def import_json(self, path: str, file_name: str):
+        self.bone_list = []
+        complete_path = os.path.join(path, file_name + ".json")
+        f = open(complete_path, "r", encoding="utf-8")
+        json_dict = json.load(f)
+        if json_dict['format_version'] != FORMAT_VERSION:
+            assert 'Format Version for bones is incorrect! Got ' + str(
+                json_dict['format_version']) + ', expected ' + str(FORMAT_VERSION)
+
+        for j_inf in json_dict['visible_bones']:
+            dv_o = j_inf['bone_display']['offset']
+            dv_s = j_inf['bone_display']['size']
+
+            dv = None
+            if dv_o is not None:
+                dv_o = Vector3(*dv_o)
+            if dv_s is not None:
+                dv_s = Vector3(*dv_s)
+
+            if dv_o is not None or dv_s is not None:
+                dv = DisplayVoxel(dv_o, dv_s)
+
+            self.bone_list.append(
+                (
+                    j_inf['parent_name'],
+                    j_inf['name'],
+                    Vector3(*j_inf['model_size']),
+                    Vector3(*j_inf['pivot']),
+                    j_inf['bone_lock'],
+                    dv
+                )
+            )
+
+
+class DisplayVoxel:
+    def __init__(self, offset: Vector3, size: Vector3):
+        self.offset = offset
+        self.size = size
+
+    def copy(self):
+        return DisplayVoxel(self.offset.copy(), self.size.copy())
 
 
 class Bone:
@@ -26,7 +207,8 @@ class Bone:
     animation_size_delta: Vector3
     animation_rotation: Quaternion
 
-    additional_info: Any
+    bone_display: Optional[DisplayVoxel]
+    bone_lock: list[str]
 
     fix_bone_size: bool
 
@@ -49,7 +231,8 @@ class Bone:
         self.animation_size_delta = Vector3(0.0, 0.0, 0.0)
         self.animation_rotation = Quaternion(0.0, 0.0, 0.0, 1.0)
 
-        self.additional_info = None
+        self.bone_display = None
+        self.bone_lock = []
 
         self.fix_bone_size = False
 
@@ -74,10 +257,12 @@ class Bone:
         new_bone.animation_size_delta = self.animation_size_delta.copy()
         new_bone.animation_rotation = self.animation_rotation.copy()
 
-        if self.additional_info is not None:
-            new_bone.additional_info = self.additional_info.copy()
+        new_bone.bone_lock = self.bone_lock.copy()
+
+        if self.bone_display is not None:
+            new_bone.bone_display = self.bone_display.copy()
         else:
-            new_bone.additional_info = self.additional_info
+            new_bone.bone_display = self.bone_display
 
         new_bone.fix_bone_size = self.fix_bone_size
 
@@ -161,7 +346,10 @@ class ArmatureFrame:
 
 
 class ArmatureFrameBone:
-    def __init__(self, offset, rotation):
+    offset: Vector3
+    rotation: Quaternion
+
+    def __init__(self, offset: Vector3, rotation: Quaternion):
         self.offset = offset
         self.rotation = rotation
 
