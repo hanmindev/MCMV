@@ -1,13 +1,14 @@
+import math
 import os
 import shutil
 import sys
-from typing import Union
+from typing import Union, Optional
 
-import mc_search_function
-import utility
-from armature_objects import ArmatureModel, MinecraftModel, ArmatureAnimation, VisibleBone
-from converter import Converter
-from math_objects import Vector3, Euler, Quaternion
+from mcmv import mc_search_function
+from mcmv import utility
+from mcmv.armature_objects import ArmatureModel, MinecraftModel, ArmatureAnimation, VisibleBone
+from mcmv.converter import Converter
+from mcmv.math_objects import Vector3, Euler, Quaternion
 
 
 class JavaUtility:
@@ -35,7 +36,7 @@ class JavaUtility:
 
 
 class AecStandPair:
-    def __init__(self, name: str, seed_prefix: tuple[str, str], root: Union[str, Vector3], item: str, allow_rotation: bool):
+    def __init__(self, name: str, seed_prefix: tuple[str, str], root: Union[str, Vector3], item: str, allow_rotation: bool, minecraft_model_no: str = ''):
         self.name = name
         self._seed_prefix = utility.get_function_directory(*seed_prefix).replace(' ', '_')
 
@@ -45,10 +46,20 @@ class AecStandPair:
             self.root = root
 
         self.aec_uuid, self.stand_uuid = utility.get_joint_uuids(*seed_prefix, self.name)
-        self.item = item
+
+        if item[0:12] == 'mcmv_end_rod':
+            self.item = 'minecraft:end_rod'
+            self._end_rod_fix = item[13:]
+        else:
+            self.item = item
+            self._end_rod_fix = None
+
+        item_new = self.item.split('$+')
+        if len(item_new) > 1:
+            self.item = minecraft_model_no.join(item_new)
 
         tag = self._seed_prefix.split('/')
-        self.common_tags = {'armature_stands', 'path_' + tag[0].replace(':', '_'), 'path_' + self._seed_prefix.replace(':', '_').replace('/', '_')}
+        self.common_tags = {'armature_stands', 'path_' + tag[0].replace(':', '_')}
 
         self._update = False
 
@@ -71,7 +82,7 @@ class AecStandPair:
                     '{id:"minecraft:armor_stand",'
                         'Tags:[' + ','.join('\'' + i + '\'' for i in tags) + '],'
                         'DisabledSlots:4144959,Invisible:1,' +
-                        utility.uuid_str_to_uuid_nbt(self.stand_uuid) + ','
+            utility.uuid_str_to_uuid_nbt(self.stand_uuid) + ','
                         'CustomNameVisible: ' + str(1 * self.show_names) + 'b,'
                         'CustomName: \'{"text": "' + self.name + '"}\' }]}',
             'item replace entity ' + self.stand_uuid + ' armor.head with ' + self.item]
@@ -92,7 +103,6 @@ class AecStandPair:
         return commands
 
     def return_transformation_command(self, position: Vector3 = Vector3(), rotation: Quaternion = Quaternion(), offset: Vector3 = Vector3(), rotate: Quaternion = Quaternion()) -> str:
-        rotation = JavaUtility.get_rotation(rotation, rotate)
 
         if type(self.root) is Vector3:
             position = JavaUtility.get_animation_position(position, offset, rotate)
@@ -115,15 +125,38 @@ class AecStandPair:
         commands.append('data merge entity ' + self.aec_uuid + ' {Air: ' + str(int(self._update)) + '}')
         self._update = not self._update
 
+        if self._end_rod_fix is not None:
+            end_rod_angle = Vector3(0.0, math.sin(math.radians(30)), -math.cos(math.radians(30)))
+            if self._end_rod_fix[1] == 'x':
+                final_angle = Vector3(1.0, 0.0, 0.0)
+            elif self._end_rod_fix[1] == 'y':
+                final_angle = Vector3(0.0, 1.0, 0.0)
+            else:
+                final_angle = Vector3(0.0, 0.0, 1.0)
+            if self._end_rod_fix[0] == '-':
+                final_angle *= -1
+
+            rotation = Quaternion().between_vectors(end_rod_angle, final_angle).parented(rotation)
+
+            # rotation = rotation.parented(Quaternion().between_vectors(end_rod_angle, final_angle))
+
+        final_rotation = JavaUtility.get_rotation(rotation, rotate)
+
+
         commands.append(
-            'data merge entity ' + self.stand_uuid + ' {Pose:{Head:' + utility.tuple_to_m_list(rotation.to_tuple(), 'f') + '}}')
+            'data merge entity ' + self.stand_uuid + ' {Pose:{Head:' + utility.tuple_to_m_list(final_rotation.to_tuple(), 'f') + '}}')
 
         return '\n'.join(commands)
 
 
 class JavaModelExporter:
+    translation: Optional[dict[str, str]]
     minecraft_model: MinecraftModel
     original_model: ArmatureModel
+
+    max_ticks: int
+    fps: int
+    function_directory: str
 
     aec_stand_pairs: dict[str, dict[str, AecStandPair]]
 
@@ -154,13 +187,13 @@ class JavaModelExporter:
         except FileExistsError:
             pass
 
-    def set_model_info(self, model: ArmatureModel, minecraft_model: MinecraftModel, translation: dict[str, str]):
+    def set_model_info(self, model: ArmatureModel, minecraft_model: MinecraftModel, translation: dict[str, str] = None):
         self.original_model = model.copy()
         self.minecraft_model = minecraft_model
         self.translation = translation
 
     def write_animation(self, function_name: str, animation: ArmatureAnimation, root: Union[str, Vector3] = Vector3().copy(),
-                        allow_rotation: bool = False, offset: Vector3 = Vector3().copy(), rotate: Quaternion = Quaternion().copy()):
+                        allow_rotation: bool = False, offset: Vector3 = Vector3().copy(), rotate: Quaternion = Quaternion().copy(), minecraft_model_no: str = ''):
         try:
             os.mkdir(os.path.join(self.function_directory, function_name))
         except FileExistsError:
@@ -171,7 +204,7 @@ class JavaModelExporter:
         for bone_name in self.minecraft_model.bones:
             bone = self.minecraft_model.bones[bone_name]
             if isinstance(bone, VisibleBone):
-                self.aec_stand_pairs[function_name][bone_name] = AecStandPair(bone.name, (self.function_directory, function_name), root, bone.display.item, allow_rotation)
+                self.aec_stand_pairs[function_name][bone_name] = AecStandPair(bone.name, (self.function_directory, function_name), root, bone.display.item, allow_rotation, minecraft_model_no)
 
         for tick, frame in enumerate(animation.frames):
             complete_path = os.path.join(self.function_directory, function_name, str(tick) + ".mcfunction")
@@ -233,7 +266,7 @@ class JavaModelExporter:
                     'this Armature!","color":"white"}]')
         f.close()
 
-    def write_search_function(self, selector_objective: str = 'global animation_time') -> None:
+    def write_search_function(self, selector_objective: str = 'global animation_time', auto: bool = True, loop: bool = True) -> None:
 
         def commands(tick):
             command_list = []
@@ -249,7 +282,10 @@ class JavaModelExporter:
         complete_path = os.path.join(self.function_directory, 'main' + ".mcfunction")
         f = open(complete_path, "a")
         f.write('function ' + utility.get_function_directory(self.function_directory, 'search') + '/' + 'main' + '\n')
-        f.write('scoreboard players add ' + selector_objective + ' 1' + '\n')
-        f.write('execute if score ' + selector_objective + ' matches ' + str(self.max_ticks) + '.. run scoreboard players set ' + selector_objective + ' 0')
+
+        if auto:
+            f.write('scoreboard players add ' + selector_objective + ' 1' + '\n')
+        if loop:
+            f.write('execute if score ' + selector_objective + ' matches ' + str(self.max_ticks) + '.. run scoreboard players set ' + selector_objective + ' 0')
 
         f.close()

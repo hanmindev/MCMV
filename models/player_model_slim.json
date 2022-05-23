@@ -1,0 +1,121 @@
+{
+    "format_version": 3.0,
+    "credit": "Minecraft Steve Player model for MCMV. Learn more at https://github.com/hanmangokiwi/MCMV",
+    "comment": "This file contains a Steve player model.",
+    "bones": [
+        {
+            "parent_name": "body",
+            "child_name": "head",
+            "size": [0.0, 8.0, 0.0],
+            "offset": [0.0, 0.0, 0.0],
+            "display": {
+                "offset": [-4.0, 0.0, -4.0],
+                "size": [8.0, 8.0, 8.0],
+                "item": "diamond_hoe{CustomModelData:$+0}"
+            }
+        },
+        {
+            "parent_name": "hip",
+            "child_name": "body",
+            "size": [0.0, 12.0, 0.0],
+            "offset": [0.0, 0.0, 0.0],
+            "display": {
+                "offset": [-4.0, 0.0, -2.0],
+                "size": [8.0, 12.0, 4.0],
+                "item": "diamond_hoe{CustomModelData:$+1}"
+            }
+        },
+        {
+            "parent_name": "body",
+            "child_name": "elbow_r",
+            "size": [0.0, -5.0, 0.0],
+            "offset": [4.0, -1.0, 0.0],
+            "display": {
+                "offset": [0.0, -5.0, -2.0],
+                "size": [3.0, 6.0, 4.0],
+                "item": "diamond_hoe{CustomModelData:$+2}"
+            }
+        },
+        {
+            "parent_name": "elbow_r",
+            "child_name": "wrist_r",
+            "size": [0.0, -4.0, 0.0],
+            "offset": [1.5, 0.0, 0.0],
+            "display": {
+                "offset": [-1.5, -6.0, -2.0],
+                "size": [3.0, 6.0, 4.0],
+                "item": "diamond_hoe{CustomModelData:$+3}"
+            }
+        },
+        {
+            "parent_name": "body",
+            "child_name": "elbow_l",
+            "size": [0.0, -5.0, 0.0],
+            "offset": [-4.0, -1.0, 0.0],
+            "display": {
+                "offset": [-3.0, -5.0, -2.0],
+                "size": [3.0, 6.0, 4.0],
+                "item": "diamond_hoe{CustomModelData:$+4}"
+            }
+        },
+        {
+            "parent_name": "elbow_l",
+            "child_name": "wrist_l",
+            "size": [0.0, -4.0, 0.0],
+            "offset": [-1.5, 0.0, 0.0],
+            "display": {
+                "offset": [-1.5, -6.0, -2.0],
+                "size": [3.0, 6.0, 4.0],
+                "item": "diamond_hoe{CustomModelData:$+5}"
+            }
+        },
+        {
+            "parent_name": "body",
+            "child_name": "knee_r",
+            "size": [0.0, -6.0, 0.0],
+            "offset": [2.0, -12.0, 0.0],
+            "display": {
+                "offset": [-2.0, -6.0, -2.0],
+                "size": [4.0, 6.0, 4.0],
+                "item": "diamond_hoe{CustomModelData:$+6}"
+            }
+        },
+        {
+            "parent_name": "knee_r",
+            "child_name": "ankle_r",
+            "size": [0.0, -6.0, 0.0],
+            "offset": [0.0, 0.0, -2.0],
+            "display": {
+                "offset": [-2.0, -6.0, 0.0],
+                "size": [4.0, 6.0, 4.0],
+                "item": "diamond_hoe{CustomModelData:$+7}"
+            }
+        },
+        {
+            "parent_name": "body",
+            "child_name": "knee_l",
+            "size": [0.0, -6.0, 0.0],
+            "offset": [-2.0, -12.0, 0.0],
+            "display": {
+                "offset": [-2.0, -6.0, -2.0],
+                "size": [4.0, 6.0, 4.0],
+                "item": "diamond_hoe{CustomModelData:$+8}"
+            }
+        },
+        {
+            "parent_name": "knee_l",
+            "child_name": "ankle_l",
+            "size": [0.0, -6.0, 0.0],
+            "offset": [0.0, 0.0, -2.0],
+            "display": {
+                "offset": [-2.0, -6.0, 0.0],
+                "size": [4.0, 6.0, 4.0],
+                "item": "diamond_hoe{CustomModelData:$+9}"
+            }
+        },
+        {
+            "parent_name": "root",
+            "child_name": "hip"
+        }
+    ]
+}

@@ -1,7 +1,7 @@
 from typing import Union
 
-from armature_objects import ArmatureModel, ArmatureFrame, MinecraftModel, DisplayVoxel, VisibleBone, Joint, PositionalBone, Bone
-from math_objects import Vector3, Quaternion
+from mcmv.armature_objects import ArmatureModel, ArmatureFrame, MinecraftModel, DisplayVoxel, VisibleBone, Joint, PositionalBone, Bone
+from mcmv.math_objects import Vector3, Quaternion
 
 
 class MinecraftModelCreator:
@@ -42,6 +42,72 @@ class MinecraftModelCreator:
         self.minecraft_model.bones[new_root.name] = new_root
 
         self.minecraft_model.root = new_root
+
+    def create_bones(self, model: ArmatureModel, scale: Union[int, float] = 1, base: str = None):
+
+        def find_fixed_direction(vec: Vector3) -> tuple[str, str]:
+            largest = 'z'
+            m = vec.z
+            if abs(vec.y) > abs(vec.z):
+                largest = 'y'
+                m = vec.y
+                if abs(vec.x) > abs(vec.y):
+                    largest = 'x'
+                    m = vec.x
+            else:
+                if abs(vec.x) > abs(vec.z):
+                    largest = 'x'
+                    m = vec.x
+            if m < 0:
+                sign = '-'
+            else:
+                sign = '+'
+
+            return sign, largest
+
+        def dfs(joint: Joint, reached_base: bool) -> Bone:
+            if reached_base:
+                d = find_fixed_direction(joint.initial_offset)
+                length = joint.initial_offset.magnitude()
+                lw_ratio = 8
+                width = length / lw_ratio
+
+                if d[1] == 'x':
+                    bone_direction_vector = Vector3(length, 0.0, 0.0)
+                    bone_size_vector = Vector3(length, width, width)
+                    bone_size_offset_vector = Vector3(0.0, -width / 2, -width / 2)
+                elif d[1] == 'y':
+                    bone_direction_vector = Vector3(0.0, length, 0.0)
+                    bone_size_vector = Vector3(width, length, width)
+                    bone_size_offset_vector = Vector3(-width / 2, 0.0, -width / 2)
+                else:
+                    bone_direction_vector = Vector3(0.0, 0.0, length)
+                    bone_size_vector = Vector3(width, width, length)
+                    bone_size_offset_vector = Vector3(-width / 2, -width / 2, 0.0)
+
+                if d[0] == '-':
+                    bone_direction_vector *= -1
+                    bone_size_offset_vector += bone_direction_vector
+
+                new_bone = VisibleBone(joint.name, bone_direction_vector * scale, Vector3(),
+                                       DisplayVoxel(bone_size_offset_vector * 16 * scale, bone_size_vector * 16 * scale, 'mcmv_end_rod ' + ''.join(d)))
+            else:
+                new_bone = PositionalBone(joint.name)
+                if joint.name == base:
+                    reached_base = True
+
+            self.minecraft_model.bones[new_bone.name] = new_bone
+
+            for child_name in joint.children:
+                child = joint.children[child_name]
+                child_bone = dfs(child, reached_base)
+                new_bone.children[child_bone.name] = child_bone
+                child_bone.parent = new_bone
+
+            return new_bone
+
+        self.minecraft_model.root = dfs(model.root, base is None)
+        self.minecraft_model.bones[self.minecraft_model.root.name] = self.minecraft_model.root
 
 
 class MinecraftModelFormatter:

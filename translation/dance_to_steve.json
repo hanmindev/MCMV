@@ -1,0 +1,17 @@
+{
+    "hip": "Bip001 Pelvis_177",
+    "body": "Bip001 Spine_178",
+    "head": "Bip001 Head_195",
+
+    "elbow_r": "Bip001 R Forearm_205",
+    "wrist_r": "Bip001 R Hand_206",
+
+    "knee_r": "Bip001 R Calf_187",
+    "ankle_r": "Bip001 R Foot_188",
+
+    "elbow_l": "Bip001 L Forearm_199",
+    "wrist_l": "Bip001 L Hand_200",
+    
+    "knee_l": "Bip001 L Calf_180",
+    "ankle_l": "Bip001 L Foot_181"
+}

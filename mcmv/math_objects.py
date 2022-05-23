@@ -441,6 +441,17 @@ class Vector3:
         if item == 2:
             return self.z
 
+    def __setitem__(self, item: int, value: float):
+        """Set the component of the vector after indexing.
+            item: Index of the vector. i = 0, j = 1, k = 2.
+        """
+        if item == 0:
+            self.x = value
+        if item == 1:
+            self.y = value
+        if item == 2:
+            self.z = value
+
     def __repr__(self) -> str:
         """Return a string representation of the object for debugging"""
         return '({}, {}, {})'.format(self.x, self.y, self.z)

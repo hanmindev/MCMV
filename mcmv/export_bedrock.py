@@ -3,16 +3,37 @@ import math
 import os
 from typing import Optional
 
-from armature_formatter import MinecraftModelFormatter
-from armature_objects import ArmatureModel, MinecraftModel, DisplayVoxel, ArmatureAnimation, VisibleBone, PositionalBone
-from converter import Converter, RotationFixer
-from math_objects import Vector3, Euler, Quaternion
+from mcmv import utility
+from mcmv.armature_formatter import MinecraftModelFormatter
+from mcmv.armature_objects import ArmatureModel, MinecraftModel, DisplayVoxel, ArmatureAnimation, VisibleBone, PositionalBone
+from mcmv.converter import Converter, RotationFixer
+from mcmv.math_objects import Vector3, Euler, Quaternion
 
 
 class BedrockUtility:
+
+    @staticmethod
+    def get_position_size(position: Vector3, size: Vector3) -> tuple[Vector3, Vector3]:
+        position = BedrockUtility.get_geo_position(position)
+        size = BedrockUtility.get_geo_position(size)
+
+        for i in range(3):
+            if size[i] < 0:
+                shift = -size[i]
+                size[i] = shift
+                position[i] -= shift
+
+        return position, size
+
     @staticmethod
     def get_geo_position(position: Vector3) -> Vector3:
         new_position = position * 16
+        new_position.x *= -1
+        return new_position
+
+    @staticmethod
+    def get_geo_position_no_scale(position: Vector3) -> Vector3:
+        new_position = position.copy()
         new_position.x *= -1
         return new_position
 
@@ -51,6 +72,7 @@ class BedrockGeoFileFormatter:
         self.visible_bounds_offset = visible_bounds_offset
 
         self._bone_list = []
+        self.model_no = ''
 
         self._json_info = {
             "format_version": self.format_version,
@@ -73,18 +95,21 @@ class BedrockGeoFileFormatter:
             ]
         }
 
-    def add_bone(self, name: str, parent_name: Optional[str], pivot: Vector3, rotation: Euler, display: DisplayVoxel):
-        bone = {'name': name}
+    def add_bone(self, name: str, parent_name: Optional[str], pivot: Vector3, rotation: Quaternion, display: DisplayVoxel):
+
+        bone = {'name': utility.compatible_bone_name(name + self.model_no)}
         if parent_name is not None:
-            bone['parent'] = parent_name
-        bone['pivot'] = list(pivot.to_tuple())
+            bone['parent'] = utility.compatible_bone_name(parent_name + self.model_no)
+        bone['pivot'] = list(BedrockUtility.get_geo_position(pivot).to_tuple())
         if rotation.x != 0 or rotation.y != 0 or rotation.z != 0:
             bone['rotation'] = list(rotation.to_tuple())
         if display is not None:
             bone['cubes'] = []
+            origin, size = BedrockUtility.get_position_size(pivot + display.offset * (1 / 16), display.size * (1 / 16))
+
             cube_info = {
-                'origin': list((pivot + display.offset).to_tuple()),
-                'size': list(display.size.to_tuple()),
+                'origin': list(origin.to_tuple()),
+                'size': list(size.to_tuple()),
                 'uv': [0, 0]
             }
             bone['cubes'].append(cube_info)
@@ -101,6 +126,7 @@ class BedrockAnimFileFormatter:
         self.identifier = identifier
 
         self._bone_dict = {}
+        self.model_no = ''
 
         self._json_info = {
             "format_version": format_version,
@@ -118,6 +144,7 @@ class BedrockAnimFileFormatter:
         self._json_info['animations'][self.identifier]['animation_length'] = length
 
     def add_keyframe(self, bone_name: str, time: float, position: Vector3 = None, rotation: Quaternion = None):
+        bone_name = utility.compatible_bone_name(bone_name + self.model_no)
         if bone_name not in self._bone_dict:
             self._bone_dict[bone_name] = {'rotation': {}, 'position': {}}
         bone_info = self._bone_dict[bone_name]
@@ -141,20 +168,25 @@ class BedrockModelExporter:
     minecraft_model: Optional[MinecraftModel]
     original_model: Optional[ArmatureModel]
 
+    model_no: str
+
     def __init__(self):
         self.translation = None
         self.fps = 20
         self.minecraft_model = None
         self.original_model = None
 
-    def set_model_info(self, model: ArmatureModel, minecraft_model: MinecraftModel, translation: dict[str, str]):
+    def set_model_info(self, model: ArmatureModel, minecraft_model: MinecraftModel, translation: dict[str, str] = None, model_no: str = ''):
         self.original_model = model.copy()
         self.minecraft_model = minecraft_model
         self.translation = translation
 
+        self.model_no = model_no
+
     def write_geo_model(self, path: str, file_name: str, model_header: BedrockGeoFileFormatter,
                         offset: Vector3 = Vector3().copy(), rotate: Quaternion = Quaternion().copy()) -> None:
         """Write the bone information from self.minecraft_model to a .geo.json file."""
+        model_header.model_no = self.model_no
 
         bones = self.minecraft_model.bones
 
@@ -175,7 +207,7 @@ class BedrockModelExporter:
             else:
                 parent_name = None
 
-            model_header.add_bone(bone.name, parent_name, BedrockUtility.get_geo_position(position), BedrockUtility.get_geo_rotation(rotation), display)
+            model_header.add_bone(bone.name, parent_name, position, rotation, display)
 
         complete_path = os.path.join(path, file_name + ".geo.json")
         open(complete_path, 'w').close()
@@ -189,6 +221,7 @@ class BedrockModelExporter:
         open(complete_path, 'w').close()
         g = open(complete_path, "a", encoding="utf-8")
         model_header.set_animation_length(math.ceil(len(animation.frames) / animation.fps))
+        model_header.model_no = self.model_no
 
         for i, frame in enumerate(animation.frames):
             frame_time = i / animation.fps
