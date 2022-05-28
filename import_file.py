@@ -1,17 +1,19 @@
 from typing import Union
 
 from math_objects import Vector3, Quaternion, Euler
-from armature_objects import Armature, ArmatureFrame, ArmatureAnimation, Bone, ArmatureFrameBone
+from armature_objects import Armature, ArmatureFrame, ArmatureAnimation, Joint
 
 import math
 
 
 def load_bvh(file_path: str, scale: float, order: str = 'xyz', max_frames: int = None,
-             face_north: Quaternion = Quaternion(0.0, 0.0, 0.0, 1.0), fps: Union[float, int] = 20, start_frame: int = 0) -> tuple[
-    Armature, ArmatureAnimation]:
+             face_north: Quaternion = Quaternion(0.0, 0.0, 0.0, 1.0), fps: Union[float, int] = 20, start_frame: int = 0) -> \
+        tuple[Armature, ArmatureAnimation]:
     name = '_'.join(file_path.split('/')[1:]).replace('.', '_').replace(' ', '_')
     new_armature = Armature(name)
     new_animation = ArmatureAnimation(fps)
+
+    joint_list = []
 
     scale = max(0.000000000000000001, scale)
 
@@ -21,16 +23,18 @@ def load_bvh(file_path: str, scale: float, order: str = 'xyz', max_frames: int =
     angle_y = math.radians(face_north_euler.y)
     angle_z = math.radians(face_north_euler.z)
 
-    rot_matrix_x = lambda y, z: (
-        y * math.cos(angle_x) - z * math.sin(angle_x), z * math.cos(angle_x) + y * math.sin(angle_x))
-    rot_matrix_y = lambda x, z: (
-        x * math.cos(angle_y) + z * math.sin(angle_y), z * math.cos(angle_y) - x * math.sin(angle_y))
-    rot_matrix_z = lambda x, y: (
-        x * math.cos(angle_z) - y * math.sin(angle_z), y * math.cos(angle_z) + x * math.sin(angle_z))
+    def rot_matrix_x(y: float, z: float) -> tuple[float, float]:
+        return y * math.cos(angle_x) - z * math.sin(angle_x), z * math.cos(angle_x) + y * math.sin(angle_x)
+
+    def rot_matrix_y(x: float, z: float) -> tuple[float, float]:
+        return x * math.cos(angle_y) + z * math.sin(angle_y), z * math.cos(angle_y) - x * math.sin(angle_y)
+
+    def rot_matrix_z(x: float, y: float) -> tuple[float, float]:
+        return x * math.cos(angle_z) - y * math.sin(angle_z), y * math.cos(angle_z) + x * math.sin(angle_z)
 
     with open(file_path, encoding='utf-8') as file:
         parent_name_stack = []
-        new_bone = None
+        new_joint = None
         mode = 0
         frame = 0
         for line in file:
@@ -44,17 +48,17 @@ def load_bvh(file_path: str, scale: float, order: str = 'xyz', max_frames: int =
 
                 elif words[0] == 'ROOT' or words[0] == 'JOINT' or words[0] == 'End':
                     if words[0] == 'End':
-                        bone_name = 'mcf_End Site_' + bone_name
+                        joint_name = 'mcf_End Site_' + joint_name
                     else:
-                        bone_name = ' '.join(words[1:len(words)])
-                    new_bone = Bone(bone_name)
+                        joint_name = ' '.join(words[1:len(words)])
+                    new_joint = Joint(joint_name)
                 elif words[0] == '{':
                     try:
                         parent_name = parent_name_stack[-1]
                     except IndexError:
                         parent_name = 'mcf_root_' + name
-                    new_armature.add_bone(new_bone, parent_name)
-                    parent_name_stack.append(bone_name)
+                    new_armature.add_joint(new_joint, parent_name)
+                    parent_name_stack.append(joint_name)
 
                 elif words[0] == '}':
                     parent_name_stack.pop()
@@ -62,13 +66,13 @@ def load_bvh(file_path: str, scale: float, order: str = 'xyz', max_frames: int =
                 elif words[0] == 'OFFSET':
                     offset = Vector3(*map(float, words[1: 4])) * scale
                     offset.rotate_by_quaternion(face_north)
-                    new_bone.bone_size = offset
+                    new_joint.joint_size = offset
 
                 elif words[0] == 'CHANNELS':
                     channels = words[2:]
-                    new_bone.channels = channels
+                    joint_list.append((new_joint.name, channels))
 
-                if len(parent_name_stack) == 0 and len(new_armature.bones) > 2:
+                if len(parent_name_stack) == 0 and len(new_armature.joints) > 2:
                     mode = 1
             else:
                 if words[0] == 'MOTION':
@@ -96,16 +100,16 @@ def load_bvh(file_path: str, scale: float, order: str = 'xyz', max_frames: int =
 
                         new_frame = ArmatureFrame()
 
-                        for bone_name in new_armature.bones:
-                            if bone_name[0:4] == 'mcf_':
+                        for joint_name, channels in joint_list:
+                            if joint_name[0:4] == 'mcf_':
                                 continue
-                            bone = new_armature.bones[bone_name]
+                            joint = new_armature.joints[joint_name]
 
-                            index_end = index_start + len(bone.channels)
+                            index_end = index_start + len(channels)
                             x_pos, y_pos, z_pos = None, None, None
                             x_rot, y_rot, z_rot = 0.0, 0.0, 0.0
                             # read channels
-                            for i, channel_name in enumerate(bone.channels):
+                            for i, channel_name in enumerate(channels):
                                 value = float(words[index_start + i])
                                 if channel_name == 'Xposition':
                                     x_pos = value
@@ -134,7 +138,7 @@ def load_bvh(file_path: str, scale: float, order: str = 'xyz', max_frames: int =
                             rotation.y, rotation.z = rot_matrix_x(rotation.y, rotation.z)
 
                             # set new frame
-                            new_frame.bone_channels[bone_name] = ArmatureFrameBone(offset, rotation)
+                            new_frame.joint_channels[joint_name] = (offset, rotation)
 
                             index_start = index_end
 
