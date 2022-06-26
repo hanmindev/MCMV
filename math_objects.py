@@ -320,7 +320,7 @@ class Quaternion:
         return Quaternion(x, y, z, w)
 
     def conjugate(self) -> Quaternion:
-        """Return the conjugate quaterion"""
+        """Return the conjugate quaternion"""
         return Quaternion(-1 * self.x, -1 * self.y, -1 * self.z, self.w)
 
     def between_vectors(self, v_1: Vector3, v_2: Vector3) -> Quaternion:
@@ -337,6 +337,8 @@ class Quaternion:
             dot = Vector3.dot_prod(v1, v2)
         except ZeroDivisionError:
             dot = 1.0
+            v1 = Vector3()
+            v2 = Vector3()
 
         if dot > 0.99999:
             self.x = 0.0
@@ -449,7 +451,7 @@ class Vector3:
 
     def to_tuple(self) -> tuple[float, float, float]:
         """Return a tuple representation of the vector"""
-        return (self.i, self.j, self.k)
+        return self.i, self.j, self.k
 
     def normalize(self) -> None:
         """Normalize the vector"""
@@ -473,7 +475,7 @@ class Vector3:
             if scale == 0:
                 return
             else:
-                raise 'Vector scale error: Cannot scale zero vector to non-zero size.'
+                raise Exception('Vector scale error: Cannot scale zero vector to non-zero size.')
         else:
             scalar = scale / m
             self.i *= scalar
@@ -487,7 +489,7 @@ class Vector3:
             if scale == 0:
                 return Vector3(0.0, 0.0, 0.0)
             else:
-                raise 'Vector scale error: Cannot scale zero vector to non-zero size.'
+                raise Exception('Vector scale error: Cannot scale zero vector to non-zero size.')
         else:
             return self * (scale / m)
 
@@ -586,11 +588,11 @@ class Vector3:
     def scale_pixels_to_meter(self) -> None:
         """Scale self from pixels to meters.
         """
-        self.i /= 17.0
-        self.j /= 17.0
-        self.k /= 17.0
+        self.i /= 16.0
+        self.j /= 16.0
+        self.k /= 16.0
 
     def scaled_pixels_to_meter(self) -> Vector3:
         """Return a scaled version of self from pixels to meters.
         """
-        return Vector3(self.i / 17.0, self.j / 17.0, self.k / 17.0)
+        return Vector3(self.i / 16.0, self.j / 16.0, self.k / 16.0)
