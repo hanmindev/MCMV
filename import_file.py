@@ -6,7 +6,7 @@ from armature_objects import ArmatureModel, ArmatureAnimation, ArmatureFrame, Jo
 
 
 class BvhFileLoader:
-    def __init__(self, file_path: str, scale: float, order: str = 'xyz', face_north: Quaternion = Quaternion):
+    def __init__(self, file_path: str, scale: float, order: str = 'xyz', face_north: Quaternion = Quaternion()):
         self.name = '_'.join(file_path.split('/')[1:]).replace('.', '_').replace(' ', '_')
 
         self.file_path = file_path
@@ -39,6 +39,7 @@ class BvhFileLoader:
 
     def get_model(self) -> ArmatureModel:
         new_armature = ArmatureModel(self.name)
+        new_armature.add_joint(Joint('mcf_root_' + self.name))
 
         with open(self.file_path, encoding='utf-8') as file:
             parent_name_stack = []
@@ -72,13 +73,13 @@ class BvhFileLoader:
                 elif words[0] == 'OFFSET':
                     offset = Vector3(*map(float, words[1: 4])) * self.scale
                     offset.rotate_by_quaternion(self.face_north)
-                    new_joint.joint_size = offset
+                    new_joint.initial_offset = offset
 
                 elif words[0] == 'CHANNELS':
                     channels = words[2:]
                     self.joint_name_list.append((new_joint.name, channels))
 
-                elif line == 'MOTION':
+                elif words[0] == 'MOTION':
                     self.start_animation_line = i
                     break
         return new_armature
@@ -115,7 +116,7 @@ class BvhFileLoader:
                         continue
                     elif frame in include_frames:
                         new_animation.frames.append(self.get_frame_from_line(line))
-                        frame += 1
+                    frame += 1
         return new_animation
 
     def get_frame_from_line(self, line: str) -> ArmatureFrame:

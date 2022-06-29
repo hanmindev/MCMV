@@ -15,11 +15,10 @@ class Joint:
     animation_rotation: Quaternion
     animation_offset: Vector3
 
-    minecraft_offset: Vector3
-
     def __init__(self, name: str):
         self.name = name
 
+        self.parent = None
         self.children = {}
 
         # this is like the size
@@ -28,7 +27,9 @@ class Joint:
         self.animation_rotation = Quaternion()
         self.animation_offset = Vector3()
 
-        self.minecraft_offset = Vector3()
+    def __repr__(self) -> str:
+        """Return a string representation of the object for debugging purposes."""
+        return 'Joint({})'.format(self.name)
 
     def copy(self) -> Joint:
         new_joint = Joint(self.name)
@@ -46,11 +47,12 @@ class Joint:
 class ArmatureModel:
     """Contains the model of the armature."""
     name: str
-    root_name: str
+    root: Optional[Joint]
     joints: dict[str, Joint]
 
     def __init__(self, name: str):
         self.name = name
+        self.root = None
         self.joints = {}
 
     def copy(self) -> ArmatureModel:
@@ -58,17 +60,23 @@ class ArmatureModel:
 
         def dfs(joint: Joint):
             new_joint = joint.copy()
+            new_joint.parent = None
+            new_joint.children = {}
+            new_model.joints[new_joint.name] = new_joint
             try:
-                joint.parent = new_model.joints[joint.parent.name]
+                new_joint.parent = new_model.joints[joint.parent.name]
                 new_model.joints[joint.parent.name].children[new_joint.name] = new_joint
             except AttributeError:
                 pass
 
-        dfs(self.joints[self.root_name])
-        new_model.root_name = new_model.root_name
+            for child_name in joint.children:
+                dfs(joint.children[child_name])
+
+        dfs(self.root)
+        new_model.root = new_model.joints[self.root.name]
         return new_model
 
-    def add_joint(self, joint: Joint, parent_name: Optional[str]):
+    def add_joint(self, joint: Joint, parent_name: str = None):
         self.joints[joint.name] = joint
         if parent_name is not None:
             parent = self.joints[parent_name]
@@ -76,7 +84,7 @@ class ArmatureModel:
 
             joint.parent = parent
         else:
-            self.root_name = joint.name
+            self.root = joint
 
 
 class ArmatureFrame:
@@ -101,32 +109,61 @@ class ArmatureAnimation:
 
 
 class DisplayVoxel:
-    pass
+    def __init__(self, offset: Vector3, size: Vector3, item: str = None):
+        self.offset = offset
+        self.size = size
+        self.item = item
+
+    def copy(self):
+        return DisplayVoxel(self.offset.copy(), self.size.copy(), self.item)
 
 
-class VisibleBone:
-    parent_joint_name: str
-    child_joint_name: str
+class Bone:
+    name: str
+    parent: Optional[Bone]
+    children: dict[str, Bone]
 
-    initial_direction: Vector3
+    size: Vector3
     offset: Vector3
 
-    display: DisplayVoxel
+    local_animation_rotation: Quaternion
 
-    def __init__(self, parent_joint_name: str, child_joint_name: str, initial_direction: Vector3, offset: Vector3, display: DisplayVoxel):
-        self.parent_joint_name = parent_joint_name
-        self.child_joint_name = child_joint_name
+    def __init__(self, name: str):
+        self.name = name
+        self.parent = None
+        self.children = {}
 
-        self.initial_direction = initial_direction
+        self.size = Vector3()
+        self.offset = Vector3()
+
+        self.local_animation_rotation = Quaternion()
+
+    def __repr__(self):
+        return 'Bone({})'.format(self.name)
+
+
+class VisibleBone(Bone):
+    display: Optional[DisplayVoxel]
+
+    def __init__(self, name: str, size: Vector3, offset: Vector3, display: DisplayVoxel):
+        super().__init__(name)
+        self.size = size
         self.offset = offset
-
         self.display = display
 
+    def __repr__(self):
+        return 'VisibleBone({})'.format(self.name)
 
-class VisibleBones:
-    visible_bones: dict[str, VisibleBone]
+
+class PositionalBone(Bone):
+    def __repr__(self):
+        return 'PositionalBone({})'.format(self.name)
+
+
+class MinecraftModel:
+    bones: dict[str, Bone]
+    root: Optional[Bone]
 
     def __init__(self):
-        self.visible_bones = {}
-        # TODO: remove this
-        self.positional = {'Hip', 'PositionOffset'}
+        self.bones = {}
+        self.root = None
