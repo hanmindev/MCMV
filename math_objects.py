@@ -12,6 +12,7 @@ class Euler:
       - y: Rotation along the local y-axis (degrees)
       - z: Rotation along the local z-axis (degrees)
     """
+
     def __init__(self, order: str, x: float = 0.0, y: float = 0.0, z: float = 0.0) -> None:
         """Create a new Euler object.
             order: Euler rotation order.
@@ -23,6 +24,10 @@ class Euler:
         self.x = x
         self.y = y
         self.z = z
+
+    def __repr__(self) -> str:
+        """Return a string representation of the Vector3 object for debugging purposes."""
+        return 'Vector3({}, {}, {}, {})'.format(self.order, self.x, self.y, self.z)
 
     def set_from_quaternion(self, quaternion: Quaternion) -> Euler:
         """Set the rotation of the Euler object from a Quaternion object.
@@ -63,7 +68,7 @@ class Euler:
 
             self.y = math.asin(min(max(m13, -1), 1))
 
-            if (abs(m13) < 0.9999999):
+            if abs(m13) < 0.9999999:
 
                 self.x = math.atan2(- m23, m33)
                 self.z = math.atan2(- m12, m11)
@@ -73,13 +78,11 @@ class Euler:
                 self.x = math.atan2(m32, m22)
                 self.z = 0
 
-
-
         elif self.order == 'yxz':
 
             self.x = math.asin(- min(max(m23, -1), 1))
 
-            if (abs(m23) < 0.9999999):
+            if abs(m23) < 0.9999999:
 
                 self.y = math.atan2(m13, m33)
                 self.z = math.atan2(m21, m22)
@@ -89,13 +92,11 @@ class Euler:
                 self.y = math.atan2(- m31, m11)
                 self.z = 0
 
-
-
         elif self.order == 'zxy':
 
             self.x = math.asin(min(max(m32, -1), 1))
 
-            if (abs(m32) < 0.9999999):
+            if abs(m32) < 0.9999999:
 
                 self.y = math.atan2(- m31, m33)
                 self.z = math.atan2(- m12, m22)
@@ -105,13 +106,11 @@ class Euler:
                 self.y = 0
                 self.z = math.atan2(m21, m11)
 
-
-
         elif self.order == 'zyx':
 
             self.y = math.asin(- min(max(m31, -1), 1))
 
-            if (abs(m31) < 0.9999999):
+            if abs(m31) < 0.9999999:
 
                 self.x = math.atan2(m32, m33)
                 self.z = math.atan2(m21, m11)
@@ -121,13 +120,11 @@ class Euler:
                 self.x = 0
                 self.z = math.atan2(- m12, m22)
 
-
-
         elif self.order == 'yzx':
 
             self.z = math.asin(min(max(m21, -1), 1))
 
-            if (abs(m21) < 0.9999999):
+            if abs(m21) < 0.9999999:
 
                 self.x = math.atan2(- m23, m22)
                 self.y = math.atan2(- m31, m11)
@@ -141,7 +138,7 @@ class Euler:
 
             self.z = math.asin(- min(max(m12, -1), 1))
 
-            if (abs(m12) < 0.9999999):
+            if abs(m12) < 0.9999999:
 
                 self.x = math.atan2(m32, m22)
                 self.y = math.atan2(m13, m11)
@@ -181,6 +178,7 @@ class Quaternion:
       - z: The k component of the quaternion.
       - w: The real component of the quaternion.
     """
+
     def __init__(self, x: float = 0.0, y: float = 0.0, z: float = 0.0, w: float = 1.0) -> None:
         """Create a new Quaternion object. Note that the real part goes at the end unlike
         some quaternion representations.
@@ -197,7 +195,10 @@ class Quaternion:
 
     def __repr__(self) -> str:
         """Return a string representation of the Quaternion object for debugging purposes."""
-        return '({}, {}, {}, {})'.format(self.x, self.y, self.z, self.w)
+        # return 'Quaternion({}, {}, {}, {})'.format(self.x, self.y, self.z, self.w)
+
+        e = Euler('zyx').set_from_quaternion(self)
+        return 'Quaternion({}, {}, {}, {}), Euler(\'-z-yx\',{},{},{})'.format(self.x, self.y, self.z, self.w, e.x, -e.y, -e.z)
 
     def copy(self) -> Quaternion:
         """Return a copy of the Quaternion object."""
@@ -376,7 +377,7 @@ class Vector3:
     j: float
     k: float
 
-    def __init__(self, i: float, j: float, k: float):
+    def __init__(self, i: float = 0.0, j: float = 0.0, k: float = 0.0):
         """Create a new Vector3 object.
 
             i: The i component of the vector.
@@ -474,7 +475,10 @@ class Vector3:
             else:
                 raise 'Vector scale error: Cannot scale zero vector to non-zero size.'
         else:
-            self.__mul__(scale / m)
+            scalar = scale / m
+            self.i *= scalar
+            self.j *= scalar
+            self.k *= scalar
 
     def scaled_to(self, scale: float) -> Vector3:
         """Scale vector to desired magnitude."""
