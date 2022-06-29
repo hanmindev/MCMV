@@ -4,17 +4,17 @@ import os
 from typing import Optional
 
 from armature_formatter import MinecraftModelFormatter
-from armature_objects import ArmatureModel, MinecraftModel, DisplayVoxel, ArmatureAnimation, VisibleBone
-from converter import Converter
+from armature_objects import ArmatureModel, MinecraftModel, DisplayVoxel, ArmatureAnimation, VisibleBone, PositionalBone
+from converter import Converter, RotationFixer
 from math_objects import Vector3, Euler, Quaternion
 from utility import tuple_to_m_list
 
 
 class BedrockUtility:
     @staticmethod
-    def get_bedrock_position(position: Vector3) -> Vector3:
-        new_position = position.copy()
-        new_position.k *= -1
+    def get_bedrock_animation_position(position: Vector3) -> Vector3:
+        new_position = position * 16
+        new_position.z *= -1
         return new_position
 
     @staticmethod
@@ -50,9 +50,9 @@ class BedrockGeoFileFormatter:
                         "visible_bounds_width": self.visible_bounds_size[0],
                         "visible_bounds_height": self.visible_bounds_size[1],
                         "visible_bounds_offset": [
-                            self.visible_bounds_offset.i,
-                            self.visible_bounds_offset.j,
-                            self.visible_bounds_offset.k
+                            self.visible_bounds_offset.x,
+                            self.visible_bounds_offset.y,
+                            self.visible_bounds_offset.z
                         ]
                     },
                     "bones": self._bone_list
@@ -84,7 +84,6 @@ class BedrockAnimFileFormatter:
     def __init__(self, format_version: str, identifier: str):
         self.format_version = format_version
         self.identifier = identifier
-        self.animation_length = 0
 
         self._bone_dict = {}
 
@@ -92,21 +91,31 @@ class BedrockAnimFileFormatter:
             "format_version": format_version,
             "animations": {
                 identifier: {
-                    "animation_length": self.animation_length,
+                    "animation_length": 0,
                     "bones": self._bone_dict
                 }
             }
         }
+
+        self.r = RotationFixer()
+
+    def set_animation_length(self, length: float):
+        self._json_info['animations'][self.identifier]['animation_length'] = length
 
     def add_keyframe(self, bone_name: str, time: float, position: Vector3 = None, rotation: Quaternion = None):
         if bone_name not in self._bone_dict:
             self._bone_dict[bone_name] = {'rotation': {}, 'position': {}}
         bone_info = self._bone_dict[bone_name]
         if position is not None:
-            bone_info['position'][str(time)] = list(BedrockUtility.get_bedrock_position(position).to_tuple())
+            bedrock_position = BedrockUtility.get_bedrock_animation_position(position)
+
+            bone_info['position'][str(time)] = list(bedrock_position.to_tuple())
 
         if rotation is not None:
-            bone_info['rotation'][str(time)] = list(BedrockUtility.get_bedrock_rotation(rotation).to_tuple())
+            bedrock_rotation = BedrockUtility.get_bedrock_rotation(rotation)
+            bedrock_rotation = self.r.fix_rotation(bone_name, bedrock_rotation)
+
+            bone_info['rotation'][str(time)] = list(bedrock_rotation.to_tuple())
 
     def get_json_info(self):
         return self._json_info
@@ -157,7 +166,7 @@ class BedrockModelExporter:
         complete_path = os.path.join(path, file_name + ".json")
         open(complete_path, 'w').close()
         g = open(complete_path, "a", encoding="utf-8")
-        model_header.animation_length = math.ceil(len(animation.frames) / animation.fps)
+        model_header.set_animation_length(math.ceil(len(animation.frames) / animation.fps))
 
         for i, frame in enumerate(animation.frames):
             frame_time = i / animation.fps
@@ -167,6 +176,10 @@ class BedrockModelExporter:
 
             for bone_name in self.minecraft_model.bones:
                 bone = self.minecraft_model.bones[bone_name]
-                model_header.add_keyframe(bone_name, frame_time, None, bone.local_animation_rotation)
+
+                if isinstance(bone, PositionalBone):
+                    model_header.add_keyframe(bone_name, frame_time, bone.local_animation_position, None)
+                elif isinstance(bone, VisibleBone):
+                    model_header.add_keyframe(bone_name, frame_time, None, bone.local_animation_rotation)
 
         g.write(json.dumps(model_header.get_json_info()))

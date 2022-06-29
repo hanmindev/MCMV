@@ -138,11 +138,11 @@ class BvhFileLoader:
             for i, channel_name in enumerate(channels):
                 value = float(words[index_start + i])
                 if channel_name == 'Xposition':
-                    offset.i = value
+                    offset.x = value
                 elif channel_name == 'Yposition':
-                    offset.j = value
+                    offset.y = value
                 elif channel_name == 'Zposition':
-                    offset.k = value
+                    offset.z = value
                 elif channel_name == 'Xrotation':
                     rotation_euler.x = value
                 elif channel_name == 'Yrotation':
