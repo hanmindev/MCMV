@@ -13,20 +13,21 @@ class BedrockUtility:
     @staticmethod
     def get_geo_position(position: Vector3) -> Vector3:
         new_position = position * 16
+        new_position.x *= -1
         return new_position
 
     @staticmethod
     def get_animation_position(position: Vector3) -> Vector3:
         new_position = position * 16
-        new_position.z *= -1
+        new_position.x *= -1
         return new_position
 
     @staticmethod
     def get_rotation(quaternion: Quaternion) -> Euler:
         rotation = Euler('zyx').set_from_quaternion(quaternion)
-        # rotation.x *= -1
+        rotation.x *= -1
         rotation.y *= -1
-        rotation.z *= -1
+        # rotation.z *= -1
 
         return rotation
 

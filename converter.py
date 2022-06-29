@@ -6,6 +6,7 @@ from math_objects import Vector3, Quaternion, Euler
 class RotationFixer:
     """Fixes the issue of quaternions not being able to represent beyond 180 degrees, which causes issues when interpolating between angles close to 180."""
     _last_rotations: dict[str, tuple[Euler, Vector3]]
+
     # previous, bias
 
     def __init__(self):
@@ -109,8 +110,8 @@ class Converter:
                 else:
                     child_translation_offset = Vector3()
 
-                child_translation = parent_translation + (bone.size + child.offset).rotated_by_quaternion(parent_rotation) + child_translation_offset
                 child_rotation = child.local_animation_rotation.parented(parent_rotation)
+                child_translation = parent_translation + (bone.size + child.offset).rotated_by_quaternion(parent_rotation) + child_translation_offset
 
                 global_transformation[child_name] = (child_translation, child_rotation)
 

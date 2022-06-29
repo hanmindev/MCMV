@@ -17,24 +17,17 @@ class JavaUtility:
     @staticmethod
     def get_animation_position(position: Vector3) -> Vector3:
         new_position = position
-        # new_position.x *= -1
-        # new_position.y *= -1
-        # new_position.z *= -1
         return new_position
 
     @staticmethod
     def get_rotation(quaternion: Quaternion) -> Euler:
         rotation = Euler('zyx').set_from_quaternion(quaternion)
-        # rotation.x *= -1
+        rotation.x *= -1
         rotation.y *= -1
-        rotation.z *= -1
         quaternion = Quaternion().set_from_euler(rotation)
 
-        rotation = Euler('yzx').set_from_quaternion(quaternion)
-        # rotation.y += 180
-        quaternion = Quaternion().set_from_euler(rotation)
-
-        rotation = Euler('zyx').set_from_quaternion(quaternion)
+        # account for the fact that y angle 0 is south
+        rotation = Euler('zyx').set_from_quaternion(quaternion.parented(Quaternion(0.0, 1.0, 0.0, 0.0)))
 
         return rotation
 
@@ -79,7 +72,7 @@ class AecStandPair:
                                                '' + self.name + '"}\' }]}',
                     'item replace entity ' + self.stand_uuid + ' armor.head with ' + self.item]
 
-        if self.root is not None:
+        if self.root is not None and isinstance(self.root, str):
             commands.append(
                 'execute at ' + self.stand_uuid + ' rotated as ' + self.root + ' run tp ' + self.stand_uuid + ' ~ ~ ~ ~ ~')
         return commands
