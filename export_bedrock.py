@@ -13,7 +13,6 @@ class BedrockUtility:
     @staticmethod
     def get_geo_position(position: Vector3) -> Vector3:
         new_position = position * 16
-        new_position.z *= -1
         return new_position
 
     @staticmethod
