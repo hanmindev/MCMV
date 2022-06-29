@@ -7,7 +7,6 @@ from armature_formatter import MinecraftModelFormatter
 from armature_objects import ArmatureModel, MinecraftModel, DisplayVoxel, ArmatureAnimation, VisibleBone, PositionalBone
 from converter import Converter, RotationFixer
 from math_objects import Vector3, Euler, Quaternion
-from utility import tuple_to_m_list
 
 
 class BedrockUtility:

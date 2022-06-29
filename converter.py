@@ -1,7 +1,5 @@
-from typing import Optional
-
 from armature_formatter import ArmatureFormatter
-from armature_objects import ArmatureModel, MinecraftModel, ArmatureFrame, Joint, Bone, PositionalBone
+from armature_objects import ArmatureModel, MinecraftModel, ArmatureFrame, Bone, PositionalBone
 from math_objects import Vector3, Quaternion, Euler
 
 

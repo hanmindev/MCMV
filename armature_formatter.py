@@ -1,6 +1,6 @@
-from typing import Optional, Union
+from typing import Union
 
-from armature_objects import ArmatureModel, ArmatureAnimation, ArmatureFrame, MinecraftModel, DisplayVoxel, VisibleBone, Joint, PositionalBone, Bone
+from armature_objects import ArmatureModel, ArmatureFrame, MinecraftModel, DisplayVoxel, VisibleBone, Joint, PositionalBone, Bone
 from math_objects import Vector3, Quaternion
 
 
