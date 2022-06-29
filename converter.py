@@ -93,3 +93,29 @@ class Converter:
                 dfs(child)
 
         dfs(minecraft_model.root)
+
+    @staticmethod
+    def get_global_minecraft(minecraft_model: MinecraftModel) -> dict[str, tuple[Vector3, Quaternion]]:
+        global_transformation = {minecraft_model.root.name: (Vector3(), Quaternion())}
+
+        def dfs(bone: Bone):
+            parent_translation, parent_rotation = global_transformation[bone.name]
+
+            for child_name in bone.children:
+                child = bone.children[child_name]
+
+                if isinstance(child, PositionalBone):
+                    child_translation_offset = child.local_animation_position
+                else:
+                    child_translation_offset = Vector3()
+
+                child_translation = parent_translation + (bone.size + child.offset).rotated_by_quaternion(parent_rotation) + child_translation_offset
+                child_rotation = child.local_animation_rotation.parented(parent_rotation)
+
+                global_transformation[child_name] = (child_translation, child_rotation)
+
+                dfs(child)
+
+        dfs(minecraft_model.root)
+
+        return global_transformation

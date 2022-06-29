@@ -11,13 +11,19 @@ from math_objects import Vector3, Euler, Quaternion
 
 class BedrockUtility:
     @staticmethod
-    def get_bedrock_animation_position(position: Vector3) -> Vector3:
+    def get_geo_position(position: Vector3) -> Vector3:
         new_position = position * 16
         new_position.z *= -1
         return new_position
 
     @staticmethod
-    def get_bedrock_rotation(quaternion: Quaternion) -> Euler:
+    def get_animation_position(position: Vector3) -> Vector3:
+        new_position = position * 16
+        new_position.z *= -1
+        return new_position
+
+    @staticmethod
+    def get_rotation(quaternion: Quaternion) -> Euler:
         rotation = Euler('zyx').set_from_quaternion(quaternion)
         rotation.y *= -1
         rotation.z *= -1
@@ -106,12 +112,12 @@ class BedrockAnimFileFormatter:
             self._bone_dict[bone_name] = {'rotation': {}, 'position': {}}
         bone_info = self._bone_dict[bone_name]
         if position is not None:
-            bedrock_position = BedrockUtility.get_bedrock_animation_position(position)
+            bedrock_position = BedrockUtility.get_animation_position(position)
 
             bone_info['position'][str(time)] = list(bedrock_position.to_tuple())
 
         if rotation is not None:
-            bedrock_rotation = BedrockUtility.get_bedrock_rotation(rotation)
+            bedrock_rotation = BedrockUtility.get_rotation(rotation)
             bedrock_rotation = self.r.fix_rotation(bone_name, bedrock_rotation)
 
             bone_info['rotation'][str(time)] = list(bedrock_rotation.to_tuple())
@@ -121,13 +127,20 @@ class BedrockAnimFileFormatter:
 
 
 class BedrockModelExporter:
-    minecraft_model: MinecraftModel
-    original_model: ArmatureModel
+    translation: Optional[dict[str, str]]
+    minecraft_model: Optional[MinecraftModel]
+    original_model: Optional[ArmatureModel]
 
-    def __init__(self, minecraft_model: MinecraftModel):
+    def __init__(self):
         self.translation = None
         self.fps = 20
+        self.minecraft_model = None
+        self.original_model = None
+
+    def set_model_info(self, model: ArmatureModel, minecraft_model: MinecraftModel, translation: dict[str, str]):
+        self.original_model = model.copy()
         self.minecraft_model = minecraft_model
+        self.translation = translation
 
     def write_geo_model(self, path: str, file_name: str, model_header: BedrockGeoFileFormatter) -> None:
         """Write the bone information from self.minecraft_model to a .geo.json file."""
@@ -148,7 +161,7 @@ class BedrockModelExporter:
             else:
                 parent_name = None
             # parent_name = None
-            model_header.add_bone(bone.name, parent_name, global_transformation[bone.name][0], display)
+            model_header.add_bone(bone.name, parent_name, BedrockUtility.get_geo_position(global_transformation[bone.name][0]), display)
 
         complete_path = os.path.join(path, file_name + ".geo.json")
         open(complete_path, 'w').close()
@@ -157,12 +170,8 @@ class BedrockModelExporter:
 
         g.write(json.dumps(model_header.get_json_info()))
 
-    def set_model_info(self, model: ArmatureModel, translation: dict[str, str]):
-        self.original_model = model.copy()
-        self.translation = translation
-
     def write_animation(self, path: str, file_name: str, model_header: BedrockAnimFileFormatter, animation: ArmatureAnimation):
-        complete_path = os.path.join(path, file_name + ".json")
+        complete_path = os.path.join(path, file_name + ".animation.json")
         open(complete_path, 'w').close()
         g = open(complete_path, "a", encoding="utf-8")
         model_header.set_animation_length(math.ceil(len(animation.frames) / animation.fps))

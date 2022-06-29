@@ -15,7 +15,7 @@ class MinecraftModelCreator:
         for visible_bone_tuple in visible_bone_list:
             if len(visible_bone_tuple) == 5:
                 parent_name, name, size, offset, display = visible_bone_tuple
-                new_bone = VisibleBone(name, size, offset, display)
+                new_bone = VisibleBone(name, size.scaled_pixels_to_meter(), offset.scaled_pixels_to_meter(), display)
             else:
                 parent_name, name = visible_bone_tuple
                 new_bone = PositionalBone(name)
@@ -92,7 +92,7 @@ class ArmatureFormatter:
 
                 global_transformation[child_name] = (child_translation, child_rotation)
 
-                dfs(joint.children[child_name])
+                dfs(child)
 
         dfs(model.root)
 

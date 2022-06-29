@@ -26,8 +26,8 @@ class Euler:
         self.z = z
 
     def __repr__(self) -> str:
-        """Return a string representation of the Vector3 object for debugging purposes."""
-        return 'Vector3({}, {}, {}, {})'.format(self.order, self.x, self.y, self.z)
+        """Return a string representation of the Euler object for debugging purposes."""
+        return 'Euler({}, {}, {}, {})'.format(self.order, self.x, self.y, self.z)
 
     def copy(self) -> Euler:
         """Return a copy of the Euler object"""
