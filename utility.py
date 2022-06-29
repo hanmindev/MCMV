@@ -47,8 +47,6 @@ def get_function_directory(directory: str, file: Optional[str]) -> str:
                     return datapack_name + ':' + '/'.join(datapack_directory) + file
     print('This doesn\'t seem to be a valid path!')
     raise 'Incorrect Path!'
-    # just in case
-    sys.exit()
 
 
 def get_joint_uuids(function_directory: str, function_name: str, name: str) -> tuple[str, str]:

@@ -1,48 +1,55 @@
+import math
 from typing import Union
 
-from math_objects import Vector3, Quaternion, Euler
-from armature_objects import Armature, ArmatureFrame, ArmatureAnimation, Joint
-
-import math
+from math_objects import Quaternion, Vector3, Euler
+from armature_objects import ArmatureModel, ArmatureAnimation, ArmatureFrame, Joint
 
 
-def load_bvh(file_path: str, scale: float, order: str = 'xyz', max_frames: int = None,
-             face_north: Quaternion = Quaternion(0.0, 0.0, 0.0, 1.0), fps: Union[float, int] = 20, start_frame: int = 0) -> \
-        tuple[Armature, ArmatureAnimation]:
-    name = '_'.join(file_path.split('/')[1:]).replace('.', '_').replace(' ', '_')
-    new_armature = Armature(name)
-    new_animation = ArmatureAnimation(fps)
+class BvhFileLoader:
+    def __init__(self, file_path: str, scale: float, order: str = 'xyz', face_north: Quaternion = Quaternion()):
+        self.name = '_'.join(file_path.split('/')[1:]).replace('.', '_').replace(' ', '_')
 
-    joint_list = []
+        self.file_path = file_path
+        self.scale = scale
+        self.order = order
+        self.face_north = face_north
 
-    scale = max(0.000000000000000001, scale)
+        self.start_animation_line = -1
+        self.joint_name_list = []
 
-    face_north_euler = Euler('xyz').set_from_quaternion(face_north)
+        face_north_euler = Euler('xyz').set_from_quaternion(face_north)
 
-    angle_x = math.radians(face_north_euler.x)
-    angle_y = math.radians(face_north_euler.y)
-    angle_z = math.radians(face_north_euler.z)
+        angle_x = math.radians(face_north_euler.x)
+        angle_y = math.radians(face_north_euler.y)
+        angle_z = math.radians(face_north_euler.z)
 
-    def rot_matrix_x(y: float, z: float) -> tuple[float, float]:
-        return y * math.cos(angle_x) - z * math.sin(angle_x), z * math.cos(angle_x) + y * math.sin(angle_x)
+        def rot_matrix_x(y: float, z: float) -> tuple[float, float]:
+            return y * math.cos(angle_x) - z * math.sin(angle_x), z * math.cos(angle_x) + y * math.sin(angle_x)
 
-    def rot_matrix_y(x: float, z: float) -> tuple[float, float]:
-        return x * math.cos(angle_y) + z * math.sin(angle_y), z * math.cos(angle_y) - x * math.sin(angle_y)
+        def rot_matrix_y(x: float, z: float) -> tuple[float, float]:
+            return x * math.cos(angle_y) + z * math.sin(angle_y), z * math.cos(angle_y) - x * math.sin(angle_y)
 
-    def rot_matrix_z(x: float, y: float) -> tuple[float, float]:
-        return x * math.cos(angle_z) - y * math.sin(angle_z), y * math.cos(angle_z) + x * math.sin(angle_z)
+        def rot_matrix_z(x: float, y: float) -> tuple[float, float]:
+            return x * math.cos(angle_z) - y * math.sin(angle_z), y * math.cos(angle_z) + x * math.sin(angle_z)
 
-    with open(file_path, encoding='utf-8') as file:
-        parent_name_stack = []
-        new_joint = None
-        mode = 0
-        frame = 0
-        for line in file:
-            words = line.split()
-            if len(words) == 0:
-                continue
+        # is this cursed?
+        self.rot_matrix_x = rot_matrix_x
+        self.rot_matrix_y = rot_matrix_y
+        self.rot_matrix_z = rot_matrix_z
 
-            if mode == 0:
+    def get_model(self) -> ArmatureModel:
+        new_armature = ArmatureModel(self.name)
+        new_armature.add_joint(Joint('mcf_root_' + self.name))
+
+        with open(self.file_path, encoding='utf-8') as file:
+            parent_name_stack = []
+            new_joint = None
+
+            for i, line in enumerate(file):
+                words = line.split()
+                if len(words) == 0:
+                    continue
+
                 if words[0] == 'HIERARCHY':
                     continue
 
@@ -56,7 +63,7 @@ def load_bvh(file_path: str, scale: float, order: str = 'xyz', max_frames: int =
                     try:
                         parent_name = parent_name_stack[-1]
                     except IndexError:
-                        parent_name = 'mcf_root_' + name
+                        parent_name = 'mcf_root_' + self.name
                     new_armature.add_joint(new_joint, parent_name)
                     parent_name_stack.append(joint_name)
 
@@ -64,85 +71,100 @@ def load_bvh(file_path: str, scale: float, order: str = 'xyz', max_frames: int =
                     parent_name_stack.pop()
 
                 elif words[0] == 'OFFSET':
-                    offset = Vector3(*map(float, words[1: 4])) * scale
-                    offset.rotate_by_quaternion(face_north)
-                    new_joint.joint_size = offset
+                    offset = Vector3(*map(float, words[1: 4])) * self.scale
+                    offset.rotate_by_quaternion(self.face_north)
+                    new_joint.initial_offset = offset
 
                 elif words[0] == 'CHANNELS':
                     channels = words[2:]
-                    joint_list.append((new_joint.name, channels))
+                    self.joint_name_list.append((new_joint.name, channels))
 
-                if len(parent_name_stack) == 0 and len(new_armature.joints) > 2:
-                    mode = 1
-            else:
-                if words[0] == 'MOTION':
-                    pass
-                elif words[0] == 'Frames:':
-                    total_frames = int(words[1])
-                elif words[0] == 'Frame' and words[1] == 'Time:':
-                    animation_fps = 1 / float(words[2])
+                elif words[0] == 'MOTION':
+                    self.start_animation_line = i
+                    break
+        return new_armature
+
+    def get_animation(self, fps: Union[float, int] = 20, start_frame: int = 0, max_frames: int = None) -> ArmatureAnimation:
+        if self.start_animation_line == -1:
+            raise Exception('Get the armature model first!')
+
+        new_animation = ArmatureAnimation(fps)
+
+        frame = 0
+        include_frames = None
+        with open(self.file_path, encoding='utf-8') as file:
+            for i, line in enumerate(file):
+                if len(line) == 0 or i < self.start_animation_line:
+                    continue
+
+                if line[:6] == 'MOTION':
+                    continue
+                elif line[:8] == 'Frames: ':
+                    total_frames = int(line[8:])
+                elif line[:12] == 'Frame Time: ':
+                    animation_fps = 1 / float(line[12:])
 
                     skip_frames = animation_fps / fps
 
                     total_minecraft_frames = math.ceil(total_frames / skip_frames)
                     include_frames = {int(i * skip_frames) for i in range(total_minecraft_frames)}
-
-                elif len(words[0]) == 0:
-                    pass
                 else:
                     if max_frames is not None and len(new_animation.frames) >= max_frames >= 0:
                         break
-                    if start_frame > 0:
+                    elif start_frame > 0:
                         start_frame -= 1
                         continue
-                    if frame in include_frames:
-                        index_start = 0
-
-                        new_frame = ArmatureFrame()
-
-                        for joint_name, channels in joint_list:
-                            if joint_name[0:4] == 'mcf_':
-                                continue
-                            joint = new_armature.joints[joint_name]
-
-                            index_end = index_start + len(channels)
-                            x_pos, y_pos, z_pos = None, None, None
-                            x_rot, y_rot, z_rot = 0.0, 0.0, 0.0
-                            # read channels
-                            for i, channel_name in enumerate(channels):
-                                value = float(words[index_start + i])
-                                if channel_name == 'Xposition':
-                                    x_pos = value
-                                elif channel_name == 'Yposition':
-                                    y_pos = value
-                                elif channel_name == 'Zposition':
-                                    z_pos = value
-                                elif channel_name == 'Xrotation':
-                                    x_rot = value
-                                elif channel_name == 'Yrotation':
-                                    y_rot = value
-                                elif channel_name == 'Zrotation':
-                                    z_rot = value
-                            if x_pos is not None:
-                                # set position
-                                offset = Vector3(x_pos, y_pos, z_pos) * scale
-                                offset.rotate_by_quaternion(face_north)
-                            else:
-                                offset = Vector3(0.0, 0.0, 0.0)
-
-                            # set rotation
-                            rotation = Quaternion().set_from_euler(Euler(order, x_rot, y_rot, z_rot))
-
-                            rotation.x, rotation.y = rot_matrix_z(rotation.x, rotation.y)
-                            rotation.x, rotation.z = rot_matrix_y(rotation.x, rotation.z)
-                            rotation.y, rotation.z = rot_matrix_x(rotation.y, rotation.z)
-
-                            # set new frame
-                            new_frame.joint_channels[joint_name] = (offset, rotation)
-
-                            index_start = index_end
-
-                        new_animation.frames.append(new_frame)
+                    elif frame in include_frames:
+                        new_animation.frames.append(self.get_frame_from_line(line))
                     frame += 1
+        return new_animation
 
-    return new_armature, new_animation
+    def get_frame_from_line(self, line: str) -> ArmatureFrame:
+        words = line.split()
+
+        index_start = 0
+
+        new_frame = ArmatureFrame()
+
+        for joint_name, channels in self.joint_name_list:
+            if joint_name[0:4] == 'mcf_':
+                continue
+
+            index_end = index_start + len(channels)
+            offset = Vector3()
+            rotation_euler = Euler(self.order)
+
+            # read channels
+            for i, channel_name in enumerate(channels):
+                value = float(words[index_start + i])
+                if channel_name == 'Xposition':
+                    offset.x = value
+                elif channel_name == 'Yposition':
+                    offset.y = value
+                elif channel_name == 'Zposition':
+                    offset.z = value
+                elif channel_name == 'Xrotation':
+                    rotation_euler.x = value
+                elif channel_name == 'Yrotation':
+                    rotation_euler.y = value
+                elif channel_name == 'Zrotation':
+                    rotation_euler.z = value
+
+            offset.rotate_by_quaternion(self.face_north)
+
+            # set rotation
+            rotation = Quaternion().set_from_euler(rotation_euler)
+
+            rotation.x, rotation.y = self.rot_matrix_z(rotation.x, rotation.y)
+            rotation.x, rotation.z = self.rot_matrix_y(rotation.x, rotation.z)
+            rotation.y, rotation.z = self.rot_matrix_x(rotation.y, rotation.z)
+
+            # set new frame
+            new_frame.joint_channels[joint_name] = (offset, rotation)
+
+            index_start = index_end
+
+        return new_frame
+
+    def get_single_animation(self, frame_number: int = -1) -> ArmatureFrame:
+        pass

@@ -26,8 +26,12 @@ class Euler:
         self.z = z
 
     def __repr__(self) -> str:
-        """Return a string representation of the Vector3 object for debugging purposes."""
-        return 'Vector3({}, {}, {}, {})'.format(self.order, self.x, self.y, self.z)
+        """Return a string representation of the Euler object for debugging purposes."""
+        return 'Euler({}, {}, {}, {})'.format(self.order, self.x, self.y, self.z)
+
+    def copy(self) -> Euler:
+        """Return a copy of the Euler object"""
+        return Euler(self.order, self.x, self.y, self.z)
 
     def set_from_quaternion(self, quaternion: Quaternion) -> Euler:
         """Set the rotation of the Euler object from a Quaternion object.
@@ -320,7 +324,7 @@ class Quaternion:
         return Quaternion(x, y, z, w)
 
     def conjugate(self) -> Quaternion:
-        """Return the conjugate quaterion"""
+        """Return the conjugate quaternion"""
         return Quaternion(-1 * self.x, -1 * self.y, -1 * self.z, self.w)
 
     def between_vectors(self, v_1: Vector3, v_2: Vector3) -> Quaternion:
@@ -337,6 +341,8 @@ class Quaternion:
             dot = Vector3.dot_prod(v1, v2)
         except ZeroDivisionError:
             dot = 1.0
+            v1 = Vector3()
+            v2 = Vector3()
 
         if dot > 0.99999:
             self.x = 0.0
@@ -345,9 +351,9 @@ class Quaternion:
             self.w = 1.0
         elif dot < -0.99999:
             # produce a different vector
-            i = v1.i + 1.0
-            j = v1.j + 1.0
-            k = v1.k + 1.0
+            i = v1.x + 1.0
+            j = v1.y + 1.0
+            k = v1.z + 1.0
 
             self.x, self.y, self.z = Vector3.cross_prod(v1, Vector3(i, j, k)).to_tuple()
             self.w = 0
@@ -373,20 +379,20 @@ class Vector3:
       - j: The i component of the vector.
       - k: The i component of the vector.
     """
-    i: float
-    j: float
-    k: float
+    x: float
+    y: float
+    z: float
 
-    def __init__(self, i: float = 0.0, j: float = 0.0, k: float = 0.0):
+    def __init__(self, x: float = 0.0, y: float = 0.0, z: float = 0.0):
         """Create a new Vector3 object.
 
-            i: The i component of the vector.
-            j: The i component of the vector.
-            k: The i component of the vector.
+            x: The x component of the vector.
+            y: The y component of the vector.
+            z: The z component of the vector.
         """
-        self.i = i
-        self.j = j
-        self.k = k
+        self.x = x
+        self.y = y
+        self.z = z
 
     def __neg__(self) -> Vector3:
         """Return a Vector3 object with opposite direction.
@@ -397,20 +403,20 @@ class Vector3:
         """Return the difference between self and other.
             other: Vector3 to subtract from self.
         """
-        return Vector3(self.i - other.i, self.j - other.j, self.k - other.k)
+        return Vector3(self.x - other.x, self.y - other.y, self.z - other.z)
 
     def __add__(self, other: Vector3) -> Vector3:
         """Return the sum of self and other.
             other: Vector3 to add to self.
         """
-        return Vector3(self.i + other.i, self.j + other.j, self.k + other.k)
+        return Vector3(self.x + other.x, self.y + other.y, self.z + other.z)
 
     # constants only
     def __mul__(self, other: float):
         """Return the product of self and a constant.
             other: A constant to multiply to self.
         """
-        return Vector3(self.i * other, self.j * other, self.k * other)
+        return Vector3(self.x * other, self.y * other, self.z * other)
 
     def __rmul__(self, other: float):
         """See __mul__.
@@ -420,24 +426,24 @@ class Vector3:
     def __iter__(self) -> float:
         """Iterate between each component of the vector in ijk order.
         """
-        yield self.i
-        yield self.j
-        yield self.k
+        yield self.x
+        yield self.y
+        yield self.z
 
     def __getitem__(self, item: int) -> float:
         """Return the component of the vector after indexing.
             item: Index of the vector. i = 0, j = 1, k = 2.
         """
         if item == 0:
-            return self.i
+            return self.x
         if item == 1:
-            return self.j
+            return self.y
         if item == 2:
-            return self.k
+            return self.z
 
     def __repr__(self) -> str:
         """Return a string representation of the object for debugging"""
-        return '({}, {}, {})'.format(self.i, self.j, self.k)
+        return '({}, {}, {})'.format(self.x, self.y, self.z)
 
     def magnitude(self) -> float:
         """Return the magnitude of the vector"""
@@ -445,25 +451,25 @@ class Vector3:
 
     def copy(self) -> Vector3:
         """Return a copy of the vector"""
-        return Vector3(self.i, self.j, self.k)
+        return Vector3(self.x, self.y, self.z)
 
     def to_tuple(self) -> tuple[float, float, float]:
         """Return a tuple representation of the vector"""
-        return (self.i, self.j, self.k)
+        return self.x, self.y, self.z
 
     def normalize(self) -> None:
         """Normalize the vector"""
         length = self.magnitude()
-        self.i /= length
-        self.j /= length
-        self.k /= length
+        self.x /= length
+        self.y /= length
+        self.z /= length
 
     def normalized(self) -> Vector3:
         """Return a normalized version of this vector"""
         length = self.magnitude()
-        i = self.i / length
-        j = self.j / length
-        k = self.k / length
+        i = self.x / length
+        j = self.y / length
+        k = self.z / length
         return Vector3(i, j, k)
 
     def scale_to(self, scale: float) -> None:
@@ -473,12 +479,12 @@ class Vector3:
             if scale == 0:
                 return
             else:
-                raise 'Vector scale error: Cannot scale zero vector to non-zero size.'
+                raise Exception('Vector scale error: Cannot scale zero vector to non-zero size.')
         else:
             scalar = scale / m
-            self.i *= scalar
-            self.j *= scalar
-            self.k *= scalar
+            self.x *= scalar
+            self.y *= scalar
+            self.z *= scalar
 
     def scaled_to(self, scale: float) -> Vector3:
         """Scale vector to desired magnitude."""
@@ -487,7 +493,7 @@ class Vector3:
             if scale == 0:
                 return Vector3(0.0, 0.0, 0.0)
             else:
-                raise 'Vector scale error: Cannot scale zero vector to non-zero size.'
+                raise Exception('Vector scale error: Cannot scale zero vector to non-zero size.')
         else:
             return self * (scale / m)
 
@@ -501,9 +507,9 @@ class Vector3:
         """Return the cross product of self and other.
             other: The second Vector
         """
-        i = self.j * other.k - self.k * other.j
-        j = self.k * other.i - self.i * other.k
-        k = self.i * other.j - self.j * other.i
+        i = self.y * other.z - self.z * other.y
+        j = self.z * other.x - self.x * other.z
+        k = self.x * other.y - self.y * other.x
         return Vector3(i, j, k)
 
     def rotate_by_quaternion(self, quaternion: Quaternion):
@@ -512,9 +518,9 @@ class Vector3:
         """
         length = self.magnitude()
         if length == 0.0:
-            self.i = 0.0
-            self.j = 0.0
-            self.k = 0.0
+            self.x = 0.0
+            self.y = 0.0
+            self.z = 0.0
         else:
             self.normalize()
 
@@ -533,17 +539,17 @@ class Vector3:
             r23 = 2 * c * d - 2 * a * b
             r33 = a * a - b * b - c * c + d * d
 
-            i = self.i
-            j = self.j
-            k = self.k
+            i = self.x
+            j = self.y
+            k = self.z
 
-            self.i = i * r11 + j * r12 + k * r13
-            self.j = i * r21 + j * r22 + k * r23
-            self.k = i * r31 + j * r32 + k * r33
+            self.x = i * r11 + j * r12 + k * r13
+            self.y = i * r21 + j * r22 + k * r23
+            self.z = i * r31 + j * r32 + k * r33
 
-            self.i *= length
-            self.j *= length
-            self.k *= length
+            self.x *= length
+            self.y *= length
+            self.z *= length
 
     def rotated_by_quaternion(self, quaternion: Quaternion):
         """Return a rotated version of self by quaternion.
@@ -569,28 +575,28 @@ class Vector3:
         r23 = 2 * c * d - 2 * a * b
         r33 = a * a - b * b - c * c + d * d
 
-        i = self_copy.i
-        j = self_copy.j
-        k = self_copy.k
+        i = self_copy.x
+        j = self_copy.y
+        k = self_copy.z
 
-        self_copy.i = i * r11 + j * r12 + k * r13
-        self_copy.j = i * r21 + j * r22 + k * r23
-        self_copy.k = i * r31 + j * r32 + k * r33
+        self_copy.x = i * r11 + j * r12 + k * r13
+        self_copy.y = i * r21 + j * r22 + k * r23
+        self_copy.z = i * r31 + j * r32 + k * r33
 
-        self_copy.i *= length
-        self_copy.j *= length
-        self_copy.k *= length
+        self_copy.x *= length
+        self_copy.y *= length
+        self_copy.z *= length
 
         return self_copy
 
     def scale_pixels_to_meter(self) -> None:
         """Scale self from pixels to meters.
         """
-        self.i /= 17.0
-        self.j /= 17.0
-        self.k /= 17.0
+        self.x /= 16.0
+        self.y /= 16.0
+        self.z /= 16.0
 
     def scaled_pixels_to_meter(self) -> Vector3:
         """Return a scaled version of self from pixels to meters.
         """
-        return Vector3(self.i / 17.0, self.j / 17.0, self.k / 17.0)
+        return Vector3(self.x / 16.0, self.y / 16.0, self.z / 16.0)
