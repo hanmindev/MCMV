@@ -1,33 +1,35 @@
-import json
-import math
 import os
 import shutil
 import sys
-from typing import Optional, Union
+from typing import Union
 
 import mc_search_function
 import utility
-from armature_formatter import MinecraftModelFormatter
-from armature_objects import ArmatureModel, MinecraftModel, DisplayVoxel, ArmatureAnimation, VisibleBone, PositionalBone, Bone
-from converter import Converter, RotationFixer
+from armature_objects import ArmatureModel, MinecraftModel, ArmatureAnimation, VisibleBone
+from converter import Converter
 from math_objects import Vector3, Euler, Quaternion
 
 
 class JavaUtility:
     @staticmethod
-    def get_animation_position(position: Vector3) -> Vector3:
-        new_position = position
-        return new_position
+    def get_relative_animation_position(position: Vector3, offset: Vector3, rotate: Quaternion) -> Vector3:
+        new_position = position.rotated_by_quaternion(rotate) + offset
+        return new_position - Vector3(0.0, 1.9, 0.0)
 
     @staticmethod
-    def get_rotation(quaternion: Quaternion) -> Euler:
-        rotation = Euler('zyx').set_from_quaternion(quaternion)
+    def get_animation_position(position: Vector3, offset: Vector3, rotate: Quaternion) -> Vector3:
+        new_position = position.rotated_by_quaternion(rotate) + offset
+        return new_position - Vector3(0.0, 1.9, 0.0)
+
+    @staticmethod
+    def get_rotation(quaternion: Quaternion, rotate: Quaternion) -> Euler:
+        rotation = Euler('zyx').set_from_quaternion(quaternion.parented(rotate).parented(Quaternion(0.0, 1.0, 0.0, 0.0)))
         rotation.x *= -1
         rotation.y *= -1
         quaternion = Quaternion().set_from_euler(rotation)
 
         # account for the fact that y angle 0 is south
-        rotation = Euler('zyx').set_from_quaternion(quaternion.parented(Quaternion(0.0, 1.0, 0.0, 0.0)))
+        rotation = Euler('zyx').set_from_quaternion(quaternion)
 
         return rotation
 
@@ -59,18 +61,20 @@ class AecStandPair:
         tags = self.common_tags.copy()
         tags.add('bn_' + self.name.replace(' ', '_'))
 
-        commands = ['kill ' + self.aec_uuid,
-                    'kill ' + self.stand_uuid,
-                    'summon area_effect_cloud ~ ~ ~ {Tags:[' + ','.join(
-                        '\"' + i + '\"' for i in tags) + '],Duration:2147483647,' + utility.uuid_str_to_uuid_nbt(
-                        self.aec_uuid) + ',Passengers:[{id:"minecraft:armor_stand",Tags:[' + ','.join(
-                        '\'' + i + '\'' for i in tags) + '],DisabledSlots:4144959,Invisible:1,'
-                                                         '' + utility.uuid_str_to_uuid_nbt(
-                        self.stand_uuid) + ',CustomNameVisible: ' + str(
-                        1 * self.show_names) + 'b, '
-                                               'CustomName: \'{"text": "'
-                                               '' + self.name + '"}\' }]}',
-                    'item replace entity ' + self.stand_uuid + ' armor.head with ' + self.item]
+        commands = [
+            'kill ' + self.aec_uuid,
+            'kill ' + self.stand_uuid,
+            'summon area_effect_cloud ~ ~ ~ {'
+                'Tags:[' + ','.join('\"' + i + '\"' for i in tags) + '],'
+                'Duration:2147483647,' + utility.uuid_str_to_uuid_nbt(self.aec_uuid) + ','
+                'Passengers:['
+                    '{id:"minecraft:armor_stand",'
+                        'Tags:[' + ','.join('\'' + i + '\'' for i in tags) + '],'
+                        'DisabledSlots:4144959,Invisible:1,' +
+                        utility.uuid_str_to_uuid_nbt(self.stand_uuid) + ','
+                        'CustomNameVisible: ' + str(1 * self.show_names) + 'b,'
+                        'CustomName: \'{"text": "' + self.name + '"}\' }]}',
+            'item replace entity ' + self.stand_uuid + ' armor.head with ' + self.item]
 
         if self.root is not None and isinstance(self.root, str):
             commands.append(
@@ -87,19 +91,20 @@ class AecStandPair:
                     'kill ' + self.stand_uuid]
         return commands
 
-    def return_transformation_command(self, offset: Vector3 = Vector3(), rotate: Quaternion = Quaternion()) -> str:
-        position = JavaUtility.get_animation_position(offset)
-        rotation = JavaUtility.get_rotation(rotate)
+    def return_transformation_command(self, position: Vector3 = Vector3(), rotation: Quaternion = Quaternion(), offset: Vector3 = Vector3(), rotate: Quaternion = Quaternion()) -> str:
+        rotation = JavaUtility.get_rotation(rotation, rotate)
 
         if type(self.root) is Vector3:
+            position = JavaUtility.get_animation_position(position, offset, rotate)
             commands = [
                 'tp ' + self.aec_uuid + ' {} {} {}'.format(
-                    *('{:f}'.format(i) for i in (position - Vector3(0.0, 1.9, 0.0) + self.root).to_tuple()))
+                    *('{:f}'.format(i) for i in (position + self.root).to_tuple()))
             ]
         else:
+            position = JavaUtility.get_relative_animation_position(position, offset, rotate)
             commands = [
                 'execute at ' + self.root + ' run tp ' + self.aec_uuid + ' ^{} ^{} ^{}'.format(
-                    *('{:f}'.format(i) for i in (position - Vector3(0.0, 1.9, 0.0)).to_tuple())) + ' ~ ~'
+                    *('{:f}'.format(i) for i in position.to_tuple())) + ' ~ ~'
             ]
             if self.allow_rotation:
                 commands.append(
@@ -154,7 +159,8 @@ class JavaModelExporter:
         self.minecraft_model = minecraft_model
         self.translation = translation
 
-    def write_animation(self, function_name: str, animation: ArmatureAnimation, root: Union[str, Vector3] = Vector3().copy(), allow_rotation: bool = False, offset: Vector3 = Vector3().copy(), rotate: Quaternion = Quaternion().copy()):
+    def write_animation(self, function_name: str, animation: ArmatureAnimation, root: Union[str, Vector3] = Vector3().copy(),
+                        allow_rotation: bool = False, offset: Vector3 = Vector3().copy(), rotate: Quaternion = Quaternion().copy()):
         try:
             os.mkdir(os.path.join(self.function_directory, function_name))
         except FileExistsError:
@@ -180,7 +186,7 @@ class JavaModelExporter:
                 aec_stand = self.aec_stand_pairs[function_name][bone_name]
                 position, rotation = global_transformation[bone_name]
 
-                commands = aec_stand.return_transformation_command(position, rotation)
+                commands = aec_stand.return_transformation_command(position, rotation, offset, rotate)
 
                 g.write(commands + '\n')
         self.max_ticks = max(self.max_ticks, len(animation))

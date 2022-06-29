@@ -17,6 +17,14 @@ class BedrockUtility:
         return new_position
 
     @staticmethod
+    def get_geo_rotation(quaternion: Quaternion) -> Euler:
+        rotation = Euler('zyx').set_from_quaternion(quaternion)
+        rotation.x *= -1
+        rotation.y *= -1
+
+        return rotation
+
+    @staticmethod
     def get_animation_position(position: Vector3) -> Vector3:
         new_position = position * 16
         new_position.x *= -1
@@ -27,7 +35,6 @@ class BedrockUtility:
         rotation = Euler('zyx').set_from_quaternion(quaternion)
         rotation.x *= -1
         rotation.y *= -1
-        # rotation.z *= -1
 
         return rotation
 
@@ -66,11 +73,13 @@ class BedrockGeoFileFormatter:
             ]
         }
 
-    def add_bone(self, name: str, parent_name: Optional[str], pivot: Vector3, display: DisplayVoxel):
+    def add_bone(self, name: str, parent_name: Optional[str], pivot: Vector3, rotation: Euler, display: DisplayVoxel):
         bone = {'name': name}
         if parent_name is not None:
             bone['parent'] = parent_name
         bone['pivot'] = list(pivot.to_tuple())
+        if rotation.x != 0 or rotation.y != 0 or rotation.z != 0:
+            bone['rotation'] = list(rotation.to_tuple())
         if display is not None:
             bone['cubes'] = []
             cube_info = {
@@ -143,15 +152,19 @@ class BedrockModelExporter:
         self.minecraft_model = minecraft_model
         self.translation = translation
 
-    def write_geo_model(self, path: str, file_name: str, model_header: BedrockGeoFileFormatter) -> None:
+    def write_geo_model(self, path: str, file_name: str, model_header: BedrockGeoFileFormatter,
+                        offset: Vector3 = Vector3().copy(), rotate: Quaternion = Quaternion().copy()) -> None:
         """Write the bone information from self.minecraft_model to a .geo.json file."""
 
         bones = self.minecraft_model.bones
 
-        global_transformation = MinecraftModelFormatter.get_model_global(self.minecraft_model)
+        global_transformation = MinecraftModelFormatter.get_model_global(self.minecraft_model, offset)
+        global_transformation[self.minecraft_model.root.name] = (global_transformation[self.minecraft_model.root.name][0], rotate)
 
         for bone_name in bones:
             bone = bones[bone_name]
+            position, rotation = global_transformation[bone.name]
+
             if isinstance(bone, VisibleBone):
                 display = bone.display
             else:
@@ -161,8 +174,8 @@ class BedrockModelExporter:
                 parent_name = bone.parent.name
             else:
                 parent_name = None
-            # parent_name = None
-            model_header.add_bone(bone.name, parent_name, BedrockUtility.get_geo_position(global_transformation[bone.name][0]), display)
+
+            model_header.add_bone(bone.name, parent_name, BedrockUtility.get_geo_position(position), BedrockUtility.get_geo_rotation(rotation), display)
 
         complete_path = os.path.join(path, file_name + ".geo.json")
         open(complete_path, 'w').close()
@@ -186,7 +199,9 @@ class BedrockModelExporter:
             for bone_name in self.minecraft_model.bones:
                 bone = self.minecraft_model.bones[bone_name]
 
-                if isinstance(bone, PositionalBone):
+                if bone is self.minecraft_model.root:
+                    continue
+                elif isinstance(bone, PositionalBone):
                     model_header.add_keyframe(bone_name, frame_time, bone.local_animation_position, None)
                 elif isinstance(bone, VisibleBone):
                     model_header.add_keyframe(bone_name, frame_time, None, bone.local_animation_rotation)

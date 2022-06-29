@@ -6,6 +6,7 @@ from math_objects import Vector3, Quaternion
 
 class MinecraftModelCreator:
     """Object used to create a Minecraft Model"""
+
     def __init__(self):
         self.minecraft_model = MinecraftModel()
 
@@ -45,8 +46,9 @@ class MinecraftModelCreator:
 
 class MinecraftModelFormatter:
     @staticmethod
-    def get_model_global(minecraft_model: MinecraftModel) -> dict[str, tuple[Vector3, Quaternion]]:
-        global_transformation = {minecraft_model.root.name: (Vector3(), Quaternion())}
+    def get_model_global(minecraft_model: MinecraftModel,
+                         offset: Vector3 = Vector3().copy(), rotate: Quaternion = Quaternion().copy()) -> dict[str, tuple[Vector3, Quaternion]]:
+        global_transformation = {minecraft_model.root.name: (offset, rotate)}
 
         def dfs(bone: Bone):
             parent_global_offset, parent_global_rotation = global_transformation[bone.name]
