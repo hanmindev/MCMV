@@ -18,13 +18,23 @@ class JavaUtility:
     def get_animation_position(position: Vector3) -> Vector3:
         new_position = position
         # new_position.x *= -1
+        # new_position.y *= -1
+        # new_position.z *= -1
         return new_position
 
     @staticmethod
     def get_rotation(quaternion: Quaternion) -> Euler:
         rotation = Euler('zyx').set_from_quaternion(quaternion)
+        # rotation.x *= -1
         rotation.y *= -1
         rotation.z *= -1
+        quaternion = Quaternion().set_from_euler(rotation)
+
+        rotation = Euler('yzx').set_from_quaternion(quaternion)
+        # rotation.y += 180
+        quaternion = Quaternion().set_from_euler(rotation)
+
+        rotation = Euler('zyx').set_from_quaternion(quaternion)
 
         return rotation
 

@@ -24,6 +24,7 @@ class BedrockUtility:
     @staticmethod
     def get_rotation(quaternion: Quaternion) -> Euler:
         rotation = Euler('zyx').set_from_quaternion(quaternion)
+        # rotation.x *= -1
         rotation.y *= -1
         rotation.z *= -1
 
