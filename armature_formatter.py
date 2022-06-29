@@ -5,10 +5,12 @@ from math_objects import Vector3, Quaternion
 
 
 class MinecraftModelCreator:
+    """Object used to create a Minecraft Model"""
     def __init__(self):
         self.minecraft_model = MinecraftModel()
 
     def set_bones(self, visible_bone_list: list[Union[tuple[str, str, Vector3, Vector3, DisplayVoxel], tuple[str, str]]]):
+        """Set bones for the Minecraft Model"""
         new_root_name = None
         for visible_bone_tuple in visible_bone_list:
             if len(visible_bone_tuple) == 5:

@@ -6,6 +6,7 @@ from math_objects import Vector3, Quaternion
 
 
 class Joint:
+    """Object representing a bvh Joint"""
     name: str
     parent: Optional[Joint]
     children: dict[str, Joint]
@@ -32,6 +33,7 @@ class Joint:
         return 'Joint({})'.format(self.name)
 
     def copy(self) -> Joint:
+        """Return a copy of this joint (not a deepcopy)"""
         new_joint = Joint(self.name)
         new_joint.parent = self.parent
         new_joint.children = self.children
@@ -45,7 +47,7 @@ class Joint:
 
 
 class ArmatureModel:
-    """Contains the model of the armature."""
+    """Contains the model of the armature representing the original bvh model."""
     name: str
     root: Optional[Joint]
     joints: dict[str, Joint]
@@ -56,6 +58,7 @@ class ArmatureModel:
         self.joints = {}
 
     def copy(self) -> ArmatureModel:
+        """Return a (deep)copy of this Armature Model"""
         new_model = ArmatureModel(self.name)
 
         def dfs(joint: Joint):
@@ -77,6 +80,7 @@ class ArmatureModel:
         return new_model
 
     def add_joint(self, joint: Joint, parent_name: str = None):
+        """Add a joint to this armature model."""
         self.joints[joint.name] = joint
         if parent_name is not None:
             parent = self.joints[parent_name]
@@ -109,16 +113,19 @@ class ArmatureAnimation:
 
 
 class DisplayVoxel:
+    """Contains information regarding the visible part of the bone"""
     def __init__(self, offset: Vector3, size: Vector3, item: str = None):
         self.offset = offset
         self.size = size
         self.item = item
 
     def copy(self):
+        """Return a (deep)copy of this object."""
         return DisplayVoxel(self.offset.copy(), self.size.copy(), self.item)
 
 
 class Bone:
+    """Object representing a Minecraft Bone"""
     name: str
     parent: Optional[Bone]
     children: dict[str, Bone]
@@ -143,6 +150,7 @@ class Bone:
 
 
 class VisibleBone(Bone):
+    """Object representing a Visible Minecraft Bone"""
     display: Optional[DisplayVoxel]
 
     def __init__(self, name: str, size: Vector3, offset: Vector3, display: DisplayVoxel):
@@ -156,6 +164,7 @@ class VisibleBone(Bone):
 
 
 class PositionalBone(Bone):
+    """Object representing a Positional Minecraft Bone"""
     local_animation_position: Vector3
 
     def __init__(self, name: str):
@@ -167,6 +176,7 @@ class PositionalBone(Bone):
 
 
 class MinecraftModel:
+    """Object representing a Minecraft Model"""
     bones: dict[str, Bone]
     root: Optional[Bone]
 
