@@ -1,6 +1,10 @@
 # bvh-to-mcf
 .bvh file to .mcfunction converter  
 
+This page is WIP because I have been rewriting it.
+
+If you want the older version: https://github.com/hanmangokiwi/bvh_to_mcf
+
 Example video of it in action: https://www.youtube.com/watch?v=L2yVFUgoeBY
 
 Quick setup for beginners tutorial: https://www.youtube.com/watch?v=uLdCslxuUDs [outdated, but if you follow the tutorial below you should be able to follow through]. I will post an updated tutorial as soon as I have some time free from school.
