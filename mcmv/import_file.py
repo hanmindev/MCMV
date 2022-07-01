@@ -1,8 +1,8 @@
 import math
 from typing import Union
 
-from math_objects import Quaternion, Vector3, Euler
-from armature_objects import ArmatureModel, ArmatureAnimation, ArmatureFrame, Joint
+from mcmv.math_objects import Quaternion, Vector3, Euler
+from mcmv.armature_objects import ArmatureModel, ArmatureAnimation, ArmatureFrame, Joint
 
 
 class BvhFileLoader:
@@ -39,7 +39,7 @@ class BvhFileLoader:
 
     def get_model(self) -> ArmatureModel:
         new_armature = ArmatureModel(self.name)
-        new_armature.add_joint(Joint('mcf_root_' + self.name))
+        new_armature.add_joint(Joint('mcmv_root_' + self.name))
 
         with open(self.file_path, encoding='utf-8') as file:
             parent_name_stack = []
@@ -55,7 +55,7 @@ class BvhFileLoader:
 
                 elif words[0] == 'ROOT' or words[0] == 'JOINT' or words[0] == 'End':
                     if words[0] == 'End':
-                        joint_name = 'mcf_End Site_' + joint_name
+                        joint_name = 'mcmv_End Site_' + joint_name
                     else:
                         joint_name = ' '.join(words[1:len(words)])
                     new_joint = Joint(joint_name)
@@ -63,7 +63,7 @@ class BvhFileLoader:
                     try:
                         parent_name = parent_name_stack[-1]
                     except IndexError:
-                        parent_name = 'mcf_root_' + self.name
+                        parent_name = 'mcmv_root_' + self.name
                     new_armature.add_joint(new_joint, parent_name)
                     parent_name_stack.append(joint_name)
 
@@ -127,7 +127,7 @@ class BvhFileLoader:
         new_frame = ArmatureFrame()
 
         for joint_name, channels in self.joint_name_list:
-            if joint_name[0:4] == 'mcf_':
+            if joint_name[0:5] == 'mcmv_':
                 continue
 
             index_end = index_start + len(channels)
@@ -160,7 +160,7 @@ class BvhFileLoader:
             rotation.y, rotation.z = self.rot_matrix_x(rotation.y, rotation.z)
 
             # set new frame
-            new_frame.joint_channels[joint_name] = (offset, rotation)
+            new_frame.joint_channels[joint_name] = (offset * self.scale, rotation)
 
             index_start = index_end
 

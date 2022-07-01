@@ -1,6 +1,9 @@
-import sys
 import random
 from typing import Optional
+
+
+def compatible_bone_name(name: str) -> str:
+    return name.replace(' ', '_').replace('.', '_').replace(':', '_').replace('/', '_')
 
 
 def tuple_to_m_list(tup: tuple, c: str = '') -> str:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Union, Optional
 
-from math_objects import Vector3, Quaternion
+from mcmv.math_objects import Vector3, Quaternion
 
 
 class Joint:
@@ -114,14 +114,14 @@ class ArmatureAnimation:
 
 class DisplayVoxel:
     """Contains information regarding the visible part of the bone"""
-    def __init__(self, offset: Vector3, size: Vector3, item: str = None):
+    def __init__(self, offset: Vector3 = None, size: Vector3 = None, item: str = None):
         self.offset = offset
         self.size = size
         self.item = item
 
-    def copy(self):
-        """Return a (deep)copy of this object."""
-        return DisplayVoxel(self.offset.copy(), self.size.copy(), self.item)
+    # def copy(self):
+    #     """Return a (deep)copy of this object."""
+    #     return DisplayVoxel(self.offset.copy(), self.size.copy(), self.item)
 
 
 class Bone:

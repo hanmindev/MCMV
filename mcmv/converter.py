@@ -1,6 +1,6 @@
-from armature_formatter import ArmatureFormatter
-from armature_objects import ArmatureModel, MinecraftModel, ArmatureFrame, Bone, PositionalBone
-from math_objects import Vector3, Quaternion, Euler
+from mcmv.armature_formatter import ArmatureFormatter
+from mcmv.armature_objects import ArmatureModel, MinecraftModel, ArmatureFrame, Bone, PositionalBone
+from mcmv.math_objects import Vector3, Quaternion, Euler
 
 
 class RotationFixer:
@@ -64,32 +64,39 @@ class Converter:
     def set_minecraft_transformation(minecraft_model: MinecraftModel, model: ArmatureModel, translation: dict[str, str]):
         global_transformation = ArmatureFormatter.get_model_global(model)
 
+        def lookup(key: str) -> str:
+            if translation is None or key not in translation:
+                return key
+            else:
+                return translation[key]
+
         def dfs(bone: Bone):
-            try:
-                parent_rotation_name = model.joints[translation[bone.name]].parent.name
+
+            if lookup(bone.name) in model.joints and model.joints[lookup(bone.name)].parent is not None:
+                parent_rotation_name = model.joints[lookup(bone.name)].parent.name
                 parent_global_rotation = global_transformation[parent_rotation_name][1]
-            except KeyError:
+            else:
                 parent_global_rotation = Quaternion()
 
             for child_name in bone.children:
                 child = bone.children[child_name]
 
-                child_rotation_name = model.joints[translation[child_name]].parent.name
+                child_rotation_name = model.joints[lookup(child_name)].parent.name
                 child_global_rotation = global_transformation[child_rotation_name][1]
                 try:
-                    parent_real_rotation = Quaternion().between_vectors(bone.size, model.joints[translation[bone.name]].initial_offset).parented(parent_global_rotation)
+                    parent_real_rotation = Quaternion().between_vectors(bone.size, model.joints[lookup(bone.name)].initial_offset).parented(parent_global_rotation)
                 except KeyError:
                     parent_real_rotation = parent_global_rotation
 
-                child_real_rotation = Quaternion().between_vectors(child.size, model.joints[translation[child.name]].initial_offset).parented(child_global_rotation)
+                child_real_rotation = Quaternion().between_vectors(child.size, model.joints[lookup(child.name)].initial_offset).parented(child_global_rotation)
 
                 child.local_animation_rotation = child_real_rotation.parented(parent_real_rotation.conjugate())
                 if isinstance(child, PositionalBone):
                     try:
-                        parent_global_position = global_transformation[translation[bone.name]][0]
+                        parent_global_position = global_transformation[lookup(bone.name)][0]
                     except KeyError:
                         parent_global_position = Vector3()
-                    child.local_animation_position = global_transformation[translation[child_name]][0] - parent_global_position
+                    child.local_animation_position = global_transformation[lookup(child_name)][0] - parent_global_position
 
                 dfs(child)
 
