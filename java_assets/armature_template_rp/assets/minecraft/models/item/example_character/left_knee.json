@@ -1,0 +1,6 @@
+{
+    "parent": "item/left_knee",
+    "textures": {
+        "0": "skin1"
+    }
+}

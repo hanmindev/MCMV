@@ -1,0 +1,18 @@
+{
+	"parent": "item/handheld",
+	"textures": {
+        	"layer0": "item/diamond_hoe"
+	},
+	"overrides": [
+		{"predicate": {"custom_model_data": 100},"model": "item/example_character/head"},
+		{"predicate": {"custom_model_data": 101},"model": "item/example_character/body"},
+		{"predicate": {"custom_model_data": 102},"model": "item/example_character/right_arm"},
+		{"predicate": {"custom_model_data": 103},"model": "item/example_character/right_elbow"},
+		{"predicate": {"custom_model_data": 104},"model": "item/example_character/left_arm"},
+		{"predicate": {"custom_model_data": 105},"model": "item/example_character/left_elbow"},
+		{"predicate": {"custom_model_data": 106},"model": "item/example_character/right_leg"},
+		{"predicate": {"custom_model_data": 107},"model": "item/example_character/right_knee"},
+		{"predicate": {"custom_model_data": 108},"model": "item/example_character/left_leg"},
+		{"predicate": {"custom_model_data": 109},"model": "item/example_character/left_knee"}
+	]
+}

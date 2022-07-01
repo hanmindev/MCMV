@@ -1,0 +1,6 @@
+{
+    "parent": "item/body",
+    "textures": {
+        "0": "skin1"
+    }
+}

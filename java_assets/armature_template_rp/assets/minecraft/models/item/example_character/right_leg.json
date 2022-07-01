@@ -1,0 +1,6 @@
+{
+    "parent": "item/right_leg",
+    "textures": {
+        "0": "skin1"
+    }
+}

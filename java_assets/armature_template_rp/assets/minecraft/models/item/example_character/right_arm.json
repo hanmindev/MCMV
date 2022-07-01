@@ -1,0 +1,6 @@
+{
+    "parent": "item/steve_arms/right_arm",
+    "textures": {
+        "0": "skin1"
+    }
+}
