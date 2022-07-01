@@ -31,7 +31,7 @@
         {
             "model_name": "steve_model",
             "type": "mcmv_json",
-            "path": "models/player_model.json"
+            "path": "model/player_model.json"
         },
         {
             "model_name": "full_player_model",
@@ -165,8 +165,8 @@
                     "name": "full_player",
                     "model_name": "full_player_model",
                     "model_no": "10",
-                    "translation_name": null,
                     "animation_name": "humanoid_dancing",
+                    "translation_name": null,
 
                     "write_geo_model": {
                         "geo_model_path": "C:/Users/USER/Desktop/mcmv output",
