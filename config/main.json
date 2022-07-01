@@ -1,0 +1,226 @@
+{
+    "format_version": "3.0",
+    "credit": ".bvh to .mcfunction converter by Hanmin Kim. Learn more at https://github.com/hanmangokiwi/MCMV",
+
+    "animation_source": [
+        {
+            "animation_name": "humanoid_dancing",
+            "type": "bvh",
+            "path": "data/dance.bvh",
+            "scale": 0.1,
+            "order": "xyz",
+            "face_north": ["xyz", -90.0, 0.0, 0.0],
+            "fps": 20,
+            "start_frame": 0,
+            "max_frames": -1
+        },
+        {
+            "animation_name": "dinosaur",
+            "type": "bvh",
+            "path": "data/dino.bvh",
+            "scale": 1.0,
+            "order": "xyz",
+            "face_north": ["xyz", 90.0, 180.0, 0.0],
+            "fps": 20,
+            "start_frame": 0,
+            "max_frames": -1
+        }
+    ],
+
+    "model_source": [
+        {
+            "model_name": "steve_model",
+            "type": "mcmv_json",
+            "path": "models/player_model.json"
+        },
+        {
+            "model_name": "full_player_model",
+            "type": "create_from_animation",
+            "animation_name": "humanoid_dancing",
+            "scale": 1.0,
+            "base": "Bip001 Pelvis_177"
+        },
+        {
+            "model_name": "dinosaur_model",
+            "type": "create_from_animation",
+            "animation_name": "dinosaur",
+            "scale": 0.05,
+            "base": "Bip001 Pelvis_123"
+        }
+    ],
+
+    "translation_source": [
+        {
+            "translation_name": "dance_to_steve",
+            "path": "translation/dance_to_steve.json"
+        }
+    ],
+
+
+    "tasks": [
+        {
+            "type": "java",
+            "function_path": "C:/Users/USER/AppData/Roaming/.minecraft/saves/WORLD NAME/datapacks/armature/data/animate/functions/dance",
+            "reset_function": true,
+            "remove_function": true,
+            "search_function": true,
+            "scoreboard_counter": "dance animation_time",
+            "auto": true,
+            "loop": true,
+
+            "armatures": [
+                {
+                    "name": "model_1",
+                    "model_name": "steve_model",
+                    "model_no": "10",
+                    "animation_name": "humanoid_dancing",
+                    "translation_name": "dance_to_steve",
+
+                    "write_animation": {
+                        "root": "bb2fd2ca-e39b-4ebe-9f51-fdbc14601a68",
+                        "offset": [0.0, 0.1, 0.0],
+                        "rotation": ["xyz", 0.0, 0.0, 0.0],
+                        "allow_rotation": true
+                    }
+                },
+                {
+                    "name": "model_2",
+                    "model_name": "full_player_model",
+                    "model_no": "10",
+                    "animation_name": "humanoid_dancing",
+                    "translation_name": null,
+
+                    "write_animation": {
+                        "root": "bb2fd2ca-e39b-4ebe-9f51-fdbc14601a68",
+                        "offset": [5.0, 0.1, 0.0],
+                        "rotation": ["xyz", 0.0, 0.0, 0.0],
+                        "allow_rotation": true
+                    }
+                }
+            ]
+        },
+        {
+            "type": "java",
+            "function_path": "C:/Users/USER/AppData/Roaming/.minecraft/saves/WORLD NAME/datapacks/armature/data/animate/functions/dinosaur",
+            "reset_function": true,
+            "remove_function": true,
+            "search_function": true,
+            "scoreboard_counter": "dinosaur animation_time",
+            "auto": true,
+            "loop": true,
+
+            "armatures": [
+                {
+                    "name": "dinosaur",
+                    "model_name": "dinosaur_model",
+                    "model_no": "",
+                    "animation_name": "dinosaur",
+
+                    "write_animation": {
+                        "root": "bb2fd2ca-e39b-4ebe-9f51-fdbc14601a68",
+                        "offset": [0.0, 5.0, 0.0],
+                        "rotation": ["xyz", 0.0, 0.0, 0.0],
+                        "allow_rotation": true
+                    }
+                }
+            ]
+        },
+        {
+            "type": "bedrock",
+            "armatures": [
+                {
+                    "name": "steve",
+                    "model_name": "steve_model",
+                    "model_no": "10",
+                    "translation_name": "dance_to_steve",
+                    "animation_name": "humanoid_dancing",
+
+                    "write_geo_model": {
+                        "geo_model_path": "C:/Users/USER/Desktop/mcmv output",
+                        "file_name": "steve_model",
+                        "bedrock_format": {
+                            "format_version": "1.12.0",
+                            "identifier": "geometry.steve_dance",
+                            "texture_size": [64, 64]
+                        },
+                        "offset": [0.0, 1.0, 0.0],
+                        "rotate": ["xyz", 0.0, 0.0, 0.0]
+                    },
+
+                    "write_animation": {
+                        "animation_model_path": "C:/Users/USER/Desktop/mcmv output",
+                        "file_name": "steve_dance",
+                        "bedrock_format": {
+                            "format_version": "1.8.0",
+                            "identifier": "animation.steve.dance"
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "type": "bedrock",
+            "armatures": [
+                {
+                    "name": "full_player",
+                    "model_name": "full_player_model",
+                    "model_no": "10",
+                    "translation_name": null,
+                    "animation_name": "humanoid_dancing",
+
+                    "write_geo_model": {
+                        "geo_model_path": "C:/Users/USER/Desktop/mcmv output",
+                        "file_name": "full_player_model",
+                        "bedrock_format": {
+                            "format_version": "1.12.0",
+                            "identifier": "geometry.full_player_dance",
+                            "texture_size": [64, 64]
+                        },
+                        "offset": [0.0, 1.0, 0.0],
+                        "rotate": ["xyz", 0.0, 0.0, 0.0]
+                    },
+
+                    "write_animation": {
+                        "animation_model_path": "C:/Users/USER/Desktop/mcmv output",
+                        "file_name": "full_player_dance",
+                        "bedrock_format": {
+                            "format_version": "1.8.0",
+                            "identifier": "animation.full_player.dance"
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "type": "bedrock",
+            "armatures": [
+                {
+                    "name": "dinosaur",
+                    "model_name": "dinosaur_model",
+                    "animation_name": "dinosaur",
+
+                    "write_geo_model": {
+                        "geo_model_path": "C:/Users/USER/Desktop/mcmv output",
+                        "file_name": "dinosaur_model",
+                        "bedrock_format": {
+                            "format_version": "1.12.0",
+                            "identifier": "geometry.dinosaur",
+                            "texture_size": [64, 64]
+                        },
+                        "offset": [0.0, 2.0, 0.0],
+                        "rotate": ["xyz", 0.0, 0.0, 0.0]
+                    },
+
+                    "write_animation": {
+                        "animation_model_path": "C:/Users/USER/Desktop/mcmv output",
+                        "file_name": "dinosaur_walk",
+                        "bedrock_format": {
+                            "format_version": "1.8.0",
+                            "identifier": "animation.dinosaur.walk"
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}
