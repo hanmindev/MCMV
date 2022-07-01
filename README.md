@@ -59,6 +59,7 @@ There are guides on how to set up a resource/behavior pack for this. I will only
 2. Click ``Open Model`` and open a .geo file.
 3. Go to the ``Animate`` tab on the top right, and click ``Import Animations`` on the left.
 4. Select the correct .animation file.
+5. The animations should be running.
 
 
 # Usage
