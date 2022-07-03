@@ -408,3 +408,4 @@ b.write_geo_model('C:/GEO_MODEL_PATH', 'MODEL_NAME',BedrockGeoFileFormatter('1.1
 b.write_animation('C:/ANIMATION_MODEL_PATH', 'ANIMATION_NAME', BedrockAnimFileFormatter('1.8.0', 'animation.model.new'), animation)
 ```
 
+
