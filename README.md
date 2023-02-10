@@ -38,7 +38,7 @@ For debugging/editing purposes, if you don't have models for each bone ready, yo
 
 5. Open Command Prompt and navigate to the MCMV directory. Run the following and wait until completion.
 
-```commandline
+```bat
 python convert.py --config main.json
 ```
 
