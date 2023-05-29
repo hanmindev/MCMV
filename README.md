@@ -10,6 +10,10 @@ Example video of it in action: https://www.youtube.com/watch?v=L2yVFUgoeBY
 
 This converter was last developed in Python 3.10. If you are having problems with another Python version, consider switching to Python 3.10.
 
+Note: There is a C++ version in development:
+
+https://github.com/hanmindev/mcmv_core
+
 # Examples
 Character dancing. Virtually any humanoid armature animation is able to be used to create an animation with the model on the right in Minecraft with a bit of tweaking. Custom model rigs aren't just limited to humanoid armatures.
 
