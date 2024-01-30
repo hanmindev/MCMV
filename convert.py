@@ -292,7 +292,7 @@ def load_data(config_path: str):
 if __name__ == '__main__':
     config_json = ['main.json']
 
-    parser = argparse.ArgumentParser(description='Python script to convert .bvh files into Minecraft.\nGithub: https://github.com/hanmangokiwi/MCMV')
+    parser = argparse.ArgumentParser(description='Python script to convert .bvh files into Minecraft.\nGithub: https://github.com/hanmindev/MCMV')
     parser.add_argument('--config', help='Load a configuration file', nargs='*', default=config_json)
 
     args = parser.parse_args()
